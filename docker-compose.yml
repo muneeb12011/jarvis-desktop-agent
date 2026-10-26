@@ -1,0 +1,42 @@
+# Orchestrates the backend API and its local Ollama LLM dependency.
+#
+# IMPORTANT: this composes the backend's brain (chat/planning/memory) and
+# Ollama together for a consistent, reproducible environment — but the
+# actual screen capture and mouse/keyboard control cannot run inside a
+# container (no display, no real input devices reach a container). Use
+# this for local dev / CI / testing the API surface; run `uvicorn`
+# directly on the host (see README) when you actually want Jarvis to
+# control your screen.
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_VISION_MODEL=${OLLAMA_VISION_MODEL:-llava}
+      - OLLAMA_TEXT_MODEL=${OLLAMA_TEXT_MODEL:-llama3.1}
+      - JARVIS_AUTH_TOKEN=${JARVIS_AUTH_TOKEN:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - backend_data:/app/data
+
+volumes:
+  ollama_models:
+  backend_data:

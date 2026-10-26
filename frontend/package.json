@@ -1,0 +1,78 @@
+{
+  "name": "jarvis-hud",
+  "version": "3.1.0",
+  "description": "Jarvis desktop HUD: voice, wake word, live agent trace",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc && npm run copy-assets",
+    "copy-assets": "node -e \"const fs=require('fs');fs.copyFileSync('src/index.html','dist/index.html');fs.copyFileSync('src/style.css','dist/style.css');\"",
+    "start": "npm run build && electron .",
+    "dev": "tsc -w",
+    "dist": "npm run build && electron-builder --win nsis --publish never"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "electron-updater": "^6.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "electron": "^44.4.3",
+    "typescript": "^5.6.2",
+    "electron-builder": "^26.0.12"
+  },
+  "productName": "Jarvis",
+  "author": "Muneeb",
+  "build": {
+    "appId": "dev.muneeb.jarvis",
+    "productName": "Jarvis",
+    "executableName": "Jarvis",
+    "directories": {
+      "output": "release",
+      "buildResources": "../installer"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": [
+          "app/**/*",
+          "plugins/*.py",
+          "requirements.txt",
+          "requirements-voice.txt",
+          "integrations.json",
+          "!**/__pycache__/**",
+          "!**/*.pyc"
+        ]
+      },
+      {
+        "from": "../installer/bootstrap.ps1",
+        "to": "bootstrap.ps1"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "../installer/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Jarvis",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Jarvis-Setup-${version}.exe"
+    }
+  }
+}

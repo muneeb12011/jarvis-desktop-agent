@@ -1,0 +1,71 @@
+{
+  "_readme": "Plug anything into Jarvis. Set enabled to true, put secrets in backend/.env and reference them as ${NAME}. Then say 'Jarvis, reload integrations' or use Settings > Integrations > Reload. Guide: README.md, section Integrations.",
+
+  "mcp_servers": {
+    "browser": {
+      "enabled": true,
+      "_about": "Playwright: lets Jarvis drive web pages by their structure instead of pixels (fill forms, click links, read pages). Uses your installed Chrome.",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--browser", "chrome"],
+      "timeout": 120,
+      "confirm": "auto"
+    },
+    "files": {
+      "enabled": false,
+      "_about": "Official filesystem server, limited to the folders you list.",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "D:\\transfer"],
+      "confirm": "auto"
+    },
+    "github": {
+      "enabled": false,
+      "_about": "GitHub's hosted MCP server: issues, PRs, repos, actions. Needs GITHUB_TOKEN (a personal access token) in backend/.env.",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer ${GITHUB_TOKEN}" },
+      "confirm": "auto"
+    },
+    "home_assistant": {
+      "enabled": false,
+      "_about": "Home Assistant's built-in MCP server (Settings > Devices > Add integration > Model Context Protocol Server). Needs HA_TOKEN.",
+      "url": "http://homeassistant.local:8123/api/mcp",
+      "headers": { "Authorization": "Bearer ${HA_TOKEN}" },
+      "confirm": "always"
+    }
+  },
+
+  "http_actions": [
+    {
+      "enabled": false,
+      "name": "phone_notify",
+      "description": "Send a push notification to the user's phone (via the free ntfy app). Use for 'ping my phone', 'remind me on my phone'.",
+      "method": "POST",
+      "url": "https://ntfy.sh/${NTFY_TOPIC}",
+      "headers": { "Title": "Jarvis" },
+      "body_text": "{message}",
+      "params": { "message": { "type": "string", "description": "What to send" } }
+    },
+    {
+      "enabled": false,
+      "name": "n8n_workflow",
+      "description": "Trigger the user's n8n automation workflow with a payload.",
+      "method": "POST",
+      "url": "http://localhost:5678/webhook/jarvis",
+      "body": { "command": "{command}" },
+      "params": { "command": { "type": "string" } },
+      "confirm": true
+    },
+    {
+      "enabled": false,
+      "name": "lights",
+      "description": "Turn a Home Assistant light on or off.",
+      "method": "POST",
+      "url": "http://homeassistant.local:8123/api/services/light/{action}",
+      "headers": { "Authorization": "Bearer ${HA_TOKEN}" },
+      "body": { "entity_id": "{entity_id}" },
+      "params": {
+        "action": { "type": "string", "enum": ["turn_on", "turn_off", "toggle"] },
+        "entity_id": { "type": "string", "description": "e.g. light.bedroom" }
+      }
+    }
+  ]
+}

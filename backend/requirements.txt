@@ -1,0 +1,32 @@
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+websockets==13.1
+mss==9.0.1
+pyautogui==0.9.54
+pynput==1.7.7
+requests==2.32.3
+pydantic==2.9.2
+python-dotenv==1.0.1
+Pillow==10.4.0
+pyperclip>=1.9
+psutil>=6.0
+edge-tts>=6.1.12
+pywinauto>=0.6.8; sys_platform == "win32"
+pygetwindow>=0.0.9; sys_platform == "win32"
+comtypes>=1.4; sys_platform == "win32"
+pycaw>=20240316; sys_platform == "win32"
+
+# Pixel eyes: read text/icons from apps that expose no accessibility data.
+# Windows' built-in OCR first, RapidOCR (+ OpenCV for icons) as the fallback.
+winrt-runtime>=3.0; sys_platform == "win32"
+winrt-Windows.Foundation>=3.0; sys_platform == "win32"
+winrt-Windows.Foundation.Collections>=3.0; sys_platform == "win32"
+winrt-Windows.Globalization>=3.0; sys_platform == "win32"
+winrt-Windows.Graphics.Imaging>=3.0; sys_platform == "win32"
+winrt-Windows.Media.Ocr>=3.0; sys_platform == "win32"
+winrt-Windows.Storage>=3.0; sys_platform == "win32"
+winrt-Windows.Storage.Streams>=3.0; sys_platform == "win32"
+rapidocr_onnxruntime==1.4.4; python_version < "3.13"
+
+# Meeting copilot: microphone + "what you hear" (WASAPI loopback) capture.
+pyaudiowpatch>=0.2.12; sys_platform == "win32"

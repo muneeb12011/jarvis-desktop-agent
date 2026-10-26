@@ -1,0 +1,40 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Electron (frontend)
+node_modules/
+frontend/dist/
+frontend/out/
+frontend/release/
+frontend/build/
+
+# Secrets
+.env
+.env.*
+!.env.example
+token.json
+credentials.json
+*.pem
+
+# Local data and logs
+*.db
+logs/
+*.log
+backend/inbox/
+backend/undo/
+.playwright-mcp/
+
+# Backups and installer output
+_backup_v2/
+installer/output/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

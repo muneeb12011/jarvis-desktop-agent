@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; connect-src http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:*; img-src 'self' data: blob:; media-src 'self' blob: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'" />
+  <title>Jarvis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="layout-panel state-offline">
+  <main id="hud">
+    <header id="bar">
+      <div id="drag"></div>
+      <span id="stateWord">Offline</span>
+      <span id="brainName" title="Active model"></span>
+      <div id="barButtons">
+        <button id="wakeBtn" class="icon" title="Wake word: say “Jarvis” any time" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5l2.6-1.5M17.2 9l2.6-1.5"/><circle cx="12" cy="12" r="3.2"/></svg>
+        </button>
+        <button id="voiceBtn" class="icon" title="Speak replies" aria-pressed="true">
+          <svg viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg>
+        </button>
+        <button id="meetBtn" class="icon" title="Take meeting notes (transcribes your mic and the call audio)" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M4 12h2M8 8v8M12 5v14M16 9v6M20 11v2"/></svg>
+        </button>
+        <button id="settingsBtn" class="icon" title="Settings" aria-expanded="false">
+          <svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+        </button>
+        <button id="hideBtn" class="icon" title="Hide (Ctrl+Alt+J brings me back)">
+          <svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div id="telemetry" aria-label="System status">
+      <span id="clock">--:--</span>
+      <span id="weather" hidden></span>
+      <span class="meter" id="cpuMeter" title="Processor load"><b>CPU</b><i><s></s></i><em>--</em></span>
+      <span class="meter" id="ramMeter" title="Memory in use"><b>RAM</b><i><s></s></i><em>--</em></span>
+      <span class="meter" id="batMeter" title="Battery" hidden><b>BAT</b><i><s></s></i><em>--</em></span>
+    </div>
+
+    <section id="core" aria-live="polite">
+      <canvas id="reactor" width="520" height="520" aria-hidden="true"></canvas>
+      <p id="caption">Starting up</p>
+      <p id="heard"></p>
+    </section>
+
+    <div id="meetingBar" hidden aria-live="polite">
+      <span class="rec"><i></i>REC</span>
+      <span id="meetingTitle"></span>
+      <span id="meetingClock">00:00</span>
+      <button id="meetingStop" title="Stop and write the notes">Stop</button>
+      <p id="meetingLast"></p>
+    </div>
+
+    <div id="timers" aria-label="Timers and reminders"></div>
+
+    <section id="stream" aria-label="Conversation and activity"></section>
+
+    <section id="textSheet" hidden aria-label="Text actions">
+      <div class="sheetHead">
+        <h2 id="textSheetTitle">Selected text</h2>
+        <button id="textSheetClose" class="icon" title="Close">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <blockquote id="selectionPreview"></blockquote>
+      <div id="textActions" class="actionGrid">
+        <button data-action="explain">Explain</button>
+        <button data-action="summarize">Summarise</button>
+        <button data-action="fix">Fix</button>
+        <button data-action="rewrite">Rewrite</button>
+        <button data-action="shorter">Shorter</button>
+        <button data-action="casual">Casual</button>
+        <button data-action="translate">Translate</button>
+        <button data-action="reply">Draft reply</button>
+      </div>
+      <form id="customActionForm" class="row">
+        <input id="customAction" type="text" placeholder="Or say what to do with it" aria-label="Custom instruction" />
+        <button class="ghost" type="submit">Go</button>
+      </form>
+      <div id="textResult" hidden>
+        <pre id="textResultText"></pre>
+        <div class="row">
+          <button id="copyResultBtn" class="ghost">Copy</button>
+          <button id="replaceBtn" class="ghost primary">Replace selection</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="onboard" hidden aria-label="Set up Jarvis">
+      <ol class="obSteps" aria-hidden="true"><li></li><li></li><li></li><li></li></ol>
+
+      <div class="obStep" data-step="1">
+        <p class="obKicker">Setup · 1 of 4</p>
+        <h2>Who am I working for?</h2>
+        <label class="field"><span>Your name</span><input id="obName" type="text" maxlength="40" autocomplete="off" /></label>
+        <label class="field"><span>City</span><input id="obCity" type="text" maxlength="60" placeholder="for weather and local time" /></label>
+        <p class="obLabel">How should I address you?</p>
+        <div class="segmented" id="obTitle" role="radiogroup" aria-label="How Jarvis addresses you"></div>
+      </div>
+
+      <div class="obStep" data-step="2" hidden>
+        <p class="obKicker">Setup · 2 of 4</p>
+        <h2>Give me a brain</h2>
+        <p class="obText">I think with Google Gemini. A free key takes about a minute: sign in, press <b>Create API key</b>, copy it here.</p>
+        <button id="obGetKey" class="ghost wide">Open Google AI Studio</button>
+        <label class="field obKey"><span>API key</span><input id="obKey" type="password" autocomplete="off" spellcheck="false" placeholder="paste it here" /></label>
+        <p id="obKeyState" class="obState"></p>
+      </div>
+
+      <div class="obStep" data-step="3" hidden>
+        <p class="obKicker">Setup · 3 of 4</p>
+        <h2>Let's hear each other</h2>
+        <p class="obText">Press the button and say something like “what's the weather tomorrow”.</p>
+        <div class="micCheck"><span>Mic</span><i><s id="obMicLevel"></s></i><em id="obMicState">ready</em></div>
+        <button id="obMicTest" class="ghost wide">Test my microphone</button>
+        <p id="obHeard" class="obState"></p>
+        <p class="obLabel">My voice</p>
+        <div class="row">
+          <select id="obVoice" aria-label="Jarvis's voice"></select>
+          <button id="obVoicePreview" class="ghost">Hear it</button>
+        </div>
+      </div>
+
+      <div class="obStep" data-step="4" hidden>
+        <p class="obKicker">Setup · 4 of 4</p>
+        <h2>What I'm allowed to notice</h2>
+        <label class="switch"><input type="checkbox" id="obActivity" checked /><span>Keep a private timeline of the apps I use, so I can answer “what was I doing at 3?”</span></label>
+        <label class="switch"><input type="checkbox" id="obHeadsup" /><span>Point out errors in my terminal and editor, finished downloads and frozen apps</span></label>
+        <label class="switch"><input type="checkbox" id="obStartup" checked /><span>Start with Windows</span></label>
+        <p class="hint">Everything stays on this PC. Change any of it later in Settings.</p>
+        <dl class="obKeys">
+          <dt>Ctrl+Alt+J</dt><dd>talk to me (or just say “Jarvis”)</dd>
+          <dt>Ctrl+Alt+Space</dt><dd>fix, translate or rewrite selected text in any app</dd>
+          <dt>Ctrl+Alt+X</dt><dd>stop whatever I'm doing</dd>
+        </dl>
+      </div>
+
+      <div class="obNav">
+        <button id="obBack" class="ghost">Back</button>
+        <button id="obSkip" class="obLink">Skip for now</button>
+        <button id="obNext" class="ghost primary">Next</button>
+      </div>
+    </section>
+
+    <section id="settings" hidden aria-label="Settings">
+      <div class="sheetHead">
+        <h2>Settings</h2>
+        <button id="settingsClose" class="icon" title="Close settings">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="group">
+        <h3>Voice</h3>
+        <div class="row">
+          <select id="voiceSelect" aria-label="Jarvis's voice"></select>
+          <button id="previewBtn" class="ghost">Hear it</button>
+        </div>
+        <div class="segmented" id="rateGroup" role="radiogroup" aria-label="Speaking speed"></div>
+      </div>
+
+      <div class="group">
+        <h3>Listening</h3>
+        <label class="switch"><input type="checkbox" id="optWake" /><span>Wake on “Jarvis”</span></label>
+        <label class="switch"><input type="checkbox" id="optFollow" /><span>Keep listening after a spoken reply</span></label>
+        <label class="switch"><input type="checkbox" id="optBarge" /><span>Let me interrupt while Jarvis talks</span></label>
+        <div class="micCheck"><span>Mic</span><i><s id="micLevel"></s></i><em id="micState">off</em></div>
+      </div>
+
+      <div class="group">
+        <h3>Ask before acting</h3>
+        <div class="segmented" id="confirmGroup" role="radiogroup" aria-label="When to ask for approval"></div>
+      </div>
+
+      <div class="group">
+        <h3>About you</h3>
+        <label class="field"><span>Call me</span><input id="optTitle" type="text" maxlength="30" /></label>
+        <label class="field"><span>Home city</span><input id="optCity" type="text" maxlength="60" /></label>
+      </div>
+
+      <div class="group">
+        <h3>Routines</h3>
+        <ul id="routineList" class="plainList"><li class="empty">None yet. Try “Jarvis, every weekday at 9 brief me”.</li></ul>
+      </div>
+
+      <div class="group">
+        <h3>Workspaces</h3>
+        <ul id="workspaceList" class="plainList"><li class="empty">None yet. Arrange your windows and say “save this as my coding workspace”.</li></ul>
+      </div>
+
+      <div class="group">
+        <h3>Activity history</h3>
+        <label class="switch"><input type="checkbox" id="optActivity" /><span>Keep a private timeline of the apps and windows I use</span></label>
+        <p class="hint">Stays on this PC, skips idle time and password managers, deleted after 30 days.</p>
+        <button id="clearActivityBtn" class="ghost wide">Clear activity history</button>
+      </div>
+
+      <div class="group">
+        <h3>Setup</h3>
+        <button id="rerunSetupBtn" class="ghost wide">Run the setup wizard again</button>
+      </div>
+
+      <div class="group">
+        <h3>Heads-up</h3>
+        <label class="switch"><input type="checkbox" id="optHeadsup" /><span>Point out errors in my terminal and editor, finished downloads and frozen apps</span></label>
+        <p class="hint">Reads text from developer apps only, never screenshots. An error's last lines go to the model only when one appears.</p>
+        <p id="headsupMuted" class="hint" hidden></p>
+      </div>
+
+      <div class="group">
+        <h3>Integrations</h3>
+        <ul id="integrationList" class="integrations"><li class="empty">Loading...</li></ul>
+        <div class="row">
+          <button id="reloadIntegrationsBtn" class="ghost">Reload</button>
+          <button id="openIntegrationsBtn" class="ghost">Edit integrations</button>
+          <button id="openPluginsBtn" class="ghost">Plugins folder</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="switch"><input type="checkbox" id="optStartup" /><span>Start Jarvis when Windows starts</span></label>
+        <button id="newSessionBtn" class="ghost wide">Start a fresh conversation</button>
+      </div>
+
+      <p class="keys">Ctrl+Alt+J talk &nbsp; Ctrl+Alt+Space act on selected text &nbsp; Ctrl+Alt+X stop &nbsp; Esc cancel &nbsp; ↑ last message</p>
+    </section>
+
+    <section id="confirm" hidden>
+      <p id="confirmReason"></p>
+      <div id="confirmButtons">
+        <button id="denyBtn">Don't</button>
+        <button id="allowBtn">Allow</button>
+      </div>
+      <div id="confirmTimer"></div>
+    </section>
+
+    <form id="composer" autocomplete="off">
+      <input id="input" type="text" placeholder="Ask, or tell me what to do" aria-label="Message Jarvis" />
+      <button id="micBtn" type="button" class="icon big" title="Talk (Ctrl+Alt+J)">
+        <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
+      </button>
+      <button id="stopBtn" type="button" class="icon big" title="Stop (Ctrl+Alt+X)" hidden>
+        <svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/></svg>
+      </button>
+    </form>
+  </main>
+
+  <aside id="mini">
+    <canvas id="miniReactor" width="144" height="144" aria-hidden="true"></canvas>
+    <div id="miniText">
+      <strong id="miniTitle">Working</strong>
+      <span id="miniStep"></span>
+    </div>
+    <button id="miniStop" title="Stop (Ctrl+Alt+X)">Stop</button>
+    <button id="miniExpand" class="icon" title="Show the full panel">
+      <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5"/></svg>
+    </button>
+  </aside>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
