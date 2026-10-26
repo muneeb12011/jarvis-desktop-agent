@@ -41,7 +41,8 @@ Three ideas shape everything in it:
    reminder or window layout it saves what was there. "Undo that" works.
 3. **Your PC stays yours.** Speech recognition, screen reading, meeting
    transcripts and your activity history all stay on your machine. The AI
-   model only sees what a request needs.
+   model only sees what a request needs, and you can run the model itself
+   locally too: Jarvis works with **Ollama**, so nothing has to leave your PC.
 
 ---
 
@@ -328,9 +329,10 @@ provider is skipped automatically.
   OPENAI_MODEL=<a tool-capable model from console.groq.com/docs/models>
   OPENAI_VISION=false
   ```
-- **ollama**: fully local and private, but on a CPU-only machine each step can
-  take minutes and the model holds several GB of RAM. Only add it if you have a
-  GPU.
+- **ollama**: run local models on your own PC. Fully private, no API key, no
+  quota. Install [Ollama](https://ollama.com), pull a tool-capable model, and
+  add `ollama` to `LLM_PROVIDERS`. Best with a GPU: on a CPU-only machine each
+  step can take minutes and the model holds several GB of RAM.
 
 Useful switches: `JARVIS_VERIFY=off` (skip the self-check),
 `JARVIS_PIXEL_EYES=always|auto|off`, `JARVIS_WHISPER_MODEL=small` and
