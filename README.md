@@ -1,287 +1,257 @@
+<div align="center">
+
 # Jarvis
 
-A desktop assistant that lives on your Windows PC. Talk to it or type to it;
-it answers out loud and actually does things: opens apps, plays music,
-searches the web, manages files, sets timers and reminders, runs PowerShell,
-drives web pages, and operates any app's UI with the mouse and keyboard when
-there's no direct route. It remembers you between sessions and asks before
-doing anything risky.
+**A voice-first AI agent that uses your Windows PC the way you do.**<br>
+If you can do it with a mouse, a keyboard or a command line, Jarvis can too.
 
-Beyond "do this now", it does the things desktop assistants usually only
-promise:
+[![Latest release](https://img.shields.io/github/v/release/muneeb12011/jarvis-desktop-agent?label=download&style=flat-square&color=0ea5e9)](https://github.com/muneeb12011/jarvis-desktop-agent/releases/latest)
+![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078d4?style=flat-square)
+![Python](https://img.shields.io/badge/backend-Python-3776ab?style=flat-square)
+![Electron](https://img.shields.io/badge/panel-Electron%20%2B%20TypeScript-47848f?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-82%20passing-22c55e?style=flat-square)
 
-- **Background jobs**: "research X and write me a report" runs in parallel
-  while you keep talking; Jarvis tells you when it's done.
-- **Routines**: automations in plain English, triggered by time, by an app
-  opening, by a file landing in a folder, or by a web page changing.
-- **Activity timeline**: a private record of what you worked on, so you can
-  ask "how long was I in VS Code today?" or "find that video I watched Monday".
-- **Workspaces**: "save this as my coding setup" / "set up coding" reopens
-  your apps and puts every window back where it was.
-- **Text actions anywhere**: select text in any app, press Ctrl+Alt+Space,
-  then fix, rewrite, translate or draft a reply and paste it straight back.
+[**Download**](https://github.com/muneeb12011/jarvis-desktop-agent/releases/latest) ·
+[What it does](#what-it-does) ·
+[Install](#install) ·
+[Integrations](#plug-anything-in) ·
+[Roadmap](ROADMAP.md)
 
-Everything you can plug in (GitHub, Home Assistant, Notion, n8n, your own
-scripts...) is covered under **Integrations** below. Where this is heading:
-[ROADMAP.md](ROADMAP.md).
+<!-- Add a screenshot or GIF of the panel here: docs/panel.png -->
+
+</div>
 
 ---
 
-## Start it
+## Why this exists
 
-Double-click **`start-jarvis.bat`**. It also works as a restart: it stops any
-running Jarvis first. The panel appears bottom-right; the backend runs
-minimized.
+Most assistants answer questions. Jarvis finishes the job.
 
-First time on a new machine, run **`setup-jarvis.bat`** once (installs
-everything, details go to `setup.log`).
+Say *"Jarvis, find the PDFs I downloaded this week and open the newest"* and it
+searches the folder, opens the file and tells you which one it picked. Say
+*"research the companies hiring React devs in Lahore and make me a list"* and it
+goes off to do that in the background while you keep working.
+
+Three ideas shape everything in it:
+
+1. **It acts, then checks.** After changing something, a second skeptical pass
+   looks at what actually happened. If the click missed, Jarvis retries once,
+   then tells you plainly instead of saying "Done!".
+2. **Everything it does can be taken back.** Before changing a file, setting,
+   reminder or window layout it saves what was there. "Undo that" works.
+3. **Your PC stays yours.** Speech recognition, screen reading, meeting
+   transcripts and your activity history all stay on your machine. The AI
+   model only sees what a request needs.
+
+---
+
+## What it does
+
+### Controls the whole PC
+Opens apps, clicks, types, manages windows and files, runs PowerShell, controls
+media, volume, brightness, power and the clipboard. It reads each app's real
+buttons through Windows UI Automation. In apps that don't expose any (games,
+canvas tools, remote desktops), **pixel eyes** numbers the text and icons it
+finds on screen, so it clicks "Export" by position instead of guessing.
+
+### Works the web
+Through a built-in Playwright integration it drives websites by their
+structure: fills forms, follows links, reads pages. That is far more reliable
+than clicking pixels, and it means anything you do in a browser (research,
+outreach, posting, data entry) is something Jarvis can do for you. Risky actions
+ask first, and you should read anything before it goes out under your name.
+
+### Works while you work
+Hand it anything long and it runs as a **background job**: up to three at once,
+each with a live step and a cancel button. Jobs never touch your mouse or
+keyboard, so they never fight with you.
+
+### Runs on its own
+**Routines** are automations written in plain English:
+
+| Trigger | You say |
+|---|---|
+| Time | "Every weekday at 9, brief me and open my standup notes." |
+| Interval | "Every hour, remind me to stretch." |
+| An app opens | "When I open VS Code, play my focus playlist and set volume to 25." |
+| A file lands | "Whenever a PDF lands in Downloads, tell me what it is." |
+| A page changes | "Check the PS5 page every 30 minutes and tell me when it says in stock." |
+| Startup | "When Jarvis starts, tell me today's reminders." |
+| A name | "Make a routine called wrap up that saves my workspace and summarises my day." |
+
+### Knows your work
+It keeps a private **activity timeline** (which app and window you were in, idle
+time skipped, deleted after 30 days) so you can ask *"how long was I in VS Code
+today?"* or *"find that video I watched on Monday."* It also keeps profiles of
+the **people and projects** in your life, including promises in both directions:
+*"I promised Ali the API docs by 5pm"* sets the reminder, and *"who's waiting on
+me?"* lists what you owe.
+
+### Notices before you ask
+**Heads-up** (off until you enable it) watches developer apps for text only,
+never screenshots. When an error appears in a terminal or editor, a card
+explains it in one sentence with a **Help me fix** button. It also catches
+finished downloads and frozen apps. Each error is offered once, with a
+one-minute cooldown, and it stays quiet while Jarvis is working.
+
+### Takes meeting notes
+*"Take notes on this call."* Jarvis transcribes your mic as **You** and what the
+PC plays as **Them**, locally with Whisper. *"Stop the meeting"* writes a
+summary, decisions and action items, and one click turns your items into
+reminders and other people's into things owed to you. Audio is never saved.
+Tell people they're being transcribed.
+
+### Fixes text anywhere
+Select text in any app, press **Ctrl+Alt+Space**, and choose: explain,
+summarise, fix, rewrite, shorten, make casual, translate (English ⇄ Urdu), draft
+a reply, or type your own instruction. **Replace selection** pastes the result
+back over the original and restores your clipboard.
+
+### Remembers workspaces
+Arrange your windows, say *"save this as my coding workspace."* Later *"set up
+coding"* relaunches what's closed and puts every window back where it was.
+
+---
+
+## Trust model
+
+An agent that can use your computer needs honest limits. Here are Jarvis's.
+
+| | |
+|---|---|
+| **Asks first** | Closing apps, overwriting files, shell commands that change things, shutdown, and anything an integration marks destructive. An **Allow / Don't** card appears; ignore it for 60 s and nothing happens. |
+| **Stops instantly** | **Ctrl+Alt+X**, **Esc**, the Stop button, or slamming the mouse into a screen corner. |
+| **Undoes** | File writes (old version restored; files Jarvis created go to `backend\undo\trash`, never deleted), settings, reminders and timers, notes, remembered facts, routines, workspaces, window layouts, clipboard, volume. Backups are kept 7 days. |
+| **Admits what it can't undo** | Shell commands, typing and integration calls. It says so instead of pretending. |
+| **Stays local** | Whisper speech recognition, screen reading, meeting transcripts and the activity timeline. |
+| **Shares with the model** | Only what a request needs. Heads-up sends just the last lines of an error. |
+
+Ask *"what did you change today?"* to see the full journal.
+
+---
+
+## Install
+
+### For users
+
+1. Download `Jarvis-Setup-<version>.exe` from the
+   [latest release](https://github.com/muneeb12011/jarvis-desktop-agent/releases/latest).
+2. Run it. Windows may say **"Windows protected your PC"** because the installer
+   isn't code-signed yet. Click **More info → Run anyway**.
+3. First launch downloads a private Python and Jarvis's packages (about
+   600 MB, a few minutes). Nothing touches your existing Python.
+4. The setup wizard asks for your name, a free
+   [Gemini API key](https://aistudio.google.com), a mic test, a voice and
+   privacy choices.
+
+**Needs:** Windows 10/11 (64-bit), about 3 GB free disk space, internet on first
+launch. Your data lives in `%APPDATA%\Jarvis`, so updates never touch it.
+
+If something fails, the log is `%APPDATA%\Jarvis\logs\install.log`, and
+`check-jarvis.cmd` tests screen reading, audio devices, the speech model and
+your key.
+
+### From source
+
+```powershell
+git clone https://github.com/muneeb12011/jarvis-desktop-agent.git
+cd jarvis-desktop-agent
+setup-jarvis.bat      # once: installs everything, details in setup.log
+start-jarvis.bat      # starts Jarvis; also works as a restart
+```
+
+To build your own installer: `build-installer.cmd` produces
+`frontend\release\Jarvis-Setup-<version>.exe`.
+
+---
 
 ## Talk to it
 
 | How | What happens |
 |---|---|
-| Say **"Jarvis, ..."** | Wake word (sun icon on). Works any time, panel hidden or not. |
-| Say **"Jarvis"**, wait for the chime, then speak | Same, in two steps. |
-| **Ctrl+Alt+J** anywhere | Opens the panel and listens straight away. |
-| Click the mic | Same as Ctrl+Alt+J. |
-| Type in the box | Text in, text (and voice, if the speaker icon is on) out. |
-| After Jarvis answers a spoken request | It keeps listening ~6 s for your follow-up. No wake word needed. |
-| Talk over Jarvis | Say "stop" or "Jarvis, ..." to cut it off mid-sentence. |
-| **Ctrl+Alt+X** / **Esc** / Stop | Stops whatever it's doing. Slamming the mouse into a screen corner also aborts. |
-| **↑** in the text box | Brings back your last message. |
-| **Ctrl+Alt+Space** with text selected anywhere | Text actions: fix, rewrite, translate, reply, explain. |
+| Say **"Jarvis, …"** | Wake word. Works any time, panel hidden or not. |
+| Say **"Jarvis"**, wait for the chime | Same, in two steps. |
+| **Ctrl+Alt+J** | Opens the panel and listens straight away. |
+| Type in the box | Text in; text (and voice, if the speaker icon is on) out. **↑** brings back your last message. |
+| After a spoken answer | It keeps listening about 6 s for a follow-up. No wake word needed. |
+| Talk over it | Say "stop" or "Jarvis, …" to cut it off mid-sentence. |
+| **Ctrl+Alt+Space** | Text actions on the selected text. |
 
-Risky actions (closing apps, overwriting files, shell commands that change
-things, shutdown, anything an integration marks destructive) show
-**Allow / Don't** in the panel. Ignore it for 60 s and nothing happens.
+### Things worth trying
 
-## Things worth trying
-
-**Everyday**
-- "Brief me" / "Good morning" - time, weather, reminders, headlines
-- "What's the weather this week?" / "Will it rain tomorrow?"
-- "Set a 25 minute focus timer" / "Remind me at 6 to call Hassan"
-- "What's in the news about AI?"
-- "Define ephemeral"
-
-**Your PC**
-- "Open Spotify and play something chill" / "Pause the music" / "Volume 30"
-- "What's eating my RAM?" / "How's my battery?"
-- "Find the PDFs I downloaded this week and open the newest"
-- "Close Chrome" / "Minimize everything except VS Code"
-- "Lock the PC" / "Take a screenshot and save it"
-- "Run `git status` in D:\transfer\screen-agent"
-
-**On screen**
-- "What's on my screen?" / "Summarise this page"
-- "Open Notepad and draft a message to the team about tomorrow's standup"
-- "Go to github.com and open my notifications" (uses the browser integration)
-
-**Memory**
-- "Remember I prefer VS Code over everything else"
-- "What do you know about me?" / "What did we talk about yesterday?"
-- "Forget that I like tea"
-
-**Jarvis itself**
-- "Speak a bit faster" / "Use the American voice" / "Call me boss"
-- "Start with Windows"
-- "What integrations do you have?" / "Reload integrations"
-
-## The big five
-
-### Background jobs
-Say "in the background" (or give it anything long) and Jarvis hands it to a
-separate worker and stays free for you. Up to 3 jobs run at once; each shows
-as a chip with its current step and a × to cancel. When one finishes Jarvis
-says so, long results are saved under `Documents\Jarvis\`, and you can ask
-follow-ups ("what was the cheapest one?"). Jobs can't touch your mouse or
-keyboard, so they never fight with you.
-
-- "In the background, compare the top 5 laptops under $800 for programming."
-- "Go through my Downloads, tell me what's taking the most space and what's safe to delete."
-- "Research the companies hiring React devs in Lahore and make me a list."
-
-### Routines
-| Trigger | Example |
-|---|---|
-| Time | "Every weekday at 9, brief me and open my standup notes." |
-| Interval | "Every hour, remind me to stretch." |
-| App opens | "When I open VS Code, play my focus playlist and set volume to 25." |
-| File arrives | "Whenever a PDF lands in Downloads, tell me what it is." |
-| Web page changes | "Check the PS5 page every 30 minutes and tell me when it says in stock." |
-| Startup | "When Jarvis starts, tell me today's reminders." |
-| By name | "Make a routine called 'wrap up' that saves my workspace and summarises my day." Then just say "Jarvis, wrap up." |
-
-Manage them in Settings > Routines (run, pause, delete) or by voice.
-
-### Activity timeline
-Every few seconds Jarvis notes which app and window title is in front (VS
-Code file names, browser page titles, chat names). Idle time is skipped,
-password managers are stored without titles, everything stays in
-`backend\memory.db`, and entries older than 30 days are deleted. Switch it
-off or wipe it in Settings > Activity history.
-
-- "How long was I in VS Code today?" / "Was I productive this week?"
-- "What was I doing around 3pm yesterday?"
-- "Find that YouTube video about compilers I watched on Monday."
-
-### Workspaces
-Arrange your windows, then "save this as my coding workspace". Later,
-"set up coding" relaunches anything that's closed and puts every window back
-in place. Restore from Settings > Workspaces too.
-
-### Text actions (Ctrl+Alt+Space)
-Select text in any app (WhatsApp, Word, Gmail, VS Code, Slack...), press
-**Ctrl+Alt+Space**: Explain, Summarise, Fix, Rewrite, Shorter, Casual,
-Translate (English <-> Urdu), Draft reply, or type your own instruction.
-**Replace selection** pastes the result over the original text. Your
-clipboard is restored afterwards.
-
-## Undo and self-check
-
-**Undo.** Before Jarvis changes something it saves what was there. Say
-"undo that" (last change), "undo all of that" (everything from your last
-request), or click **Undo** on any action line in the panel. Covered: file
-writes (old version restored; files Jarvis created go to
-`backend\undo\trash`, never deleted), settings, reminders and timers,
-notes, remembered facts, routines, workspaces, window layouts, clipboard,
-volume. Shell commands, typing and integration calls can't be reversed
-automatically, and Jarvis tells you so instead of pretending. "What did you
-change today?" lists the journal. Backups are kept 7 days.
-
-**Self-check.** After a task that changed something (screen actions, file
-writes, shell commands, integration calls), a second skeptical pass looks
-at what actually happened, including a fresh screenshot for screen tasks.
-If it doesn't look done, Jarvis gets one more attempt with that feedback;
-if it still fails, the reply says so plainly. Simple questions skip the
-check. Turn it off with `JARVIS_VERIFY=off`.
-
-## People and projects
-
-Tell Jarvis about the people and projects in your life and it keeps a
-profile for each: "remember Ali is my teammate on the FarmShift backend",
-"I promised Ali the API docs by 5pm" (sets a reminder), "Sara owes me the
-designs". Ask "what do I owe Ali?", "who's waiting on me?", "catch me up on
-FarmShift" (profile, notes, open promises and this week's activity). "Forget
-Ali" deletes everything about him.
-
-## Heads-up (screen-aware help)
-
-Off until you turn it on: say "turn on heads-up" or use the switch in
-Settings. Then, while you work:
-
-- An error shows up in a terminal or code editor (Python traceback, npm
-  ERR!, TypeScript, Rust, Go, Java, git, failed build or tests, "not
-  recognized as a command") and a card explains it in one sentence with
-  **Help me fix**, which hands Jarvis the error text.
-- A download finishes: **Open** / **Show in folder**.
-- An app stops responding: **Force close it**.
-
-It reads text from developer apps only, never screenshots; nothing leaves
-the PC until an error appears (then only its last lines go to the model).
-Errors already on screen are ignored, each one is offered once, there's a
-one-minute cooldown, and it stays quiet while Jarvis is working. "Mute VS
-Code", "what was that error?", "turn off heads-up". Run `try-headsup.cmd`
-to see it in action.
-
-## Meeting notes
-
-Say "take notes on this call" (or press the waveform button in the panel's
-top bar) during a Meet, Zoom, Teams or Discord call. Jarvis transcribes your
-mic as "You" and what the PC plays as "Them", locally with Whisper; a red REC
-bar shows the time and the latest line. "Stop the meeting" writes a summary,
-decisions and action items, saves them to `Documents\Jarvis Meetings`, and
-shows a card with **Track action items** (yours become reminders or promises,
-other people's become "owed to you"). Audio is never saved. Tell people
-they're being transcribed. "What did we decide in the pricing call?" searches
-past meetings. For Urdu or mixed calls set `JARVIS_WHISPER_MODEL=small` and
-`JARVIS_MEETING_LANGUAGE=auto`.
-
-## Pixel eyes
-
-When an app exposes few accessible controls (games, canvas tools, remote
-desktops, some Electron apps), screenshots also number the text and icons
-read from the pixels (Windows' built-in OCR, RapidOCR as fallback), so
-Jarvis clicks "Export" by its exact position instead of guessing.
-`JARVIS_PIXEL_EYES=always|auto|off`.
-
-## Installer
-
-`build-installer.cmd` builds `frontend\release\Jarvis-Setup-<version>.exe`, a
-one-click installer for people without Python or Node. On first launch it
-downloads a private Python and Jarvis's packages (about 600 MB, a few
-minutes), then the setup wizard asks for name, Gemini key, mic test, voice
-and privacy choices. Data lives in `%APPDATA%\Jarvis`, so updates never touch
-it. Auto-update: put the `latest.yml` and installer from `frontend\release`
-on any static host and set `JARVIS_UPDATE_URL` in `%APPDATA%\Jarvis\.env`.
-`check-jarvis.cmd` tests screen reading, audio devices, the speech model and
-the key.
-
-## The panel
-
-- **Top row**: state, active model, wake word, speak replies, settings, hide.
-- **Telemetry**: clock, Lahore weather, CPU, RAM, battery (amber/red when high/low).
-- **Core**: the reactor reacts to your voice (cyan) and Jarvis's voice (amber).
-- **Chips**: background jobs (with their current step), timers and upcoming reminders; × cancels.
-- **Stream**: conversation plus a live trace of every action and what Jarvis saw.
-- **Settings** (sliders icon): voice + preview, speed, wake word, follow-up
-  listening, interrupting, approval level, your name/city, routines,
-  workspaces, activity history, integrations, start with Windows, fresh
-  conversation.
-
-While Jarvis drives your mouse the panel shrinks to a strip so it isn't in
-the way. It's also invisible to screenshots (so Jarvis doesn't look at
-itself); set `JARVIS_HUD_CAPTURABLE=1` in `frontend/.env` if you want to
-screenshot it.
+- *"Brief me"*: time, weather, reminders, headlines
+- *"What's eating my RAM?"* / *"How's my battery?"*
+- *"Open Spotify and play something chill"* / *"Volume 30"*
+- *"Open Notepad and draft a message to the team about tomorrow's standup"*
+- *"Summarise this page"* / *"What's on my screen?"*
+- *"In the background, go through my Downloads and tell me what's safe to delete."*
+- *"Remember I prefer VS Code over everything else"* / *"Forget that I like tea"*
+- *"Start with Windows"* / *"Speak a bit faster"* / *"Call me boss"*
 
 ---
 
-## Integrations
+## How it fits together
 
-Three ways to plug anything in, none of which touch Jarvis's core code.
-After any change: **Settings > Integrations > Reload**, or say
-"Jarvis, reload integrations".
+```mermaid
+flowchart LR
+    You([You: voice or text]) --> Panel[Electron panel<br/>TypeScript]
+    Panel <-->|localhost| Backend[Python backend<br/>agent loop]
+    Backend --> Local[On your PC<br/>Whisper · screen reading · memory.db · undo journal]
+    Backend --> Model[LLM<br/>Gemini · OpenAI-compatible · Ollama]
+    Backend --> Hands[Hands<br/>UI Automation · pixel eyes · shell · files]
+    Backend --> Plug[Plug-ins<br/>MCP servers · HTTP actions · Python]
+    Backend --> Check[Self-check pass]
+```
 
-Secrets never go in the JSON: write `${NAME}` there and add `NAME=...` to
+- **Dynamic toolsets.** To keep requests small and fast, Jarvis sends the model
+  only the tools a request needs: a core set, plus groups (files, windows,
+  routines, activity, workspaces, each integration) switched on by keywords or
+  when the model asks for them.
+- **Model rotation.** The free Gemini tier has a *daily* cap per model, so
+  Jarvis discovers every Flash model your key can use, rotates when one runs
+  out, and remembers which answered last.
+- **Everything is logged.** Every action lands in `backend/agent_log.db`.
+
+---
+
+## Plug anything in
+
+Three ways, none of which touch Jarvis's core code. After a change, use
+**Settings → Integrations → Reload** or say *"Jarvis, reload integrations."*
+Secrets never go in the JSON: write `${NAME}` there and put `NAME=...` in
 `backend/.env`.
 
-### 1. MCP servers (most services)
-
-[Model Context Protocol](https://modelcontextprotocol.io) is the standard
-"AI connector" format; GitHub, Notion, Slack, Google Drive, Home Assistant,
-Postgres, Playwright, Spotify and hundreds more ship one. Add it to
-`backend/integrations.json`:
+### 1. MCP servers
+[Model Context Protocol](https://modelcontextprotocol.io) is the standard AI
+connector format. GitHub, Notion, Slack, Google Drive, Home Assistant, Postgres
+and hundreds more ship one. Add it to `backend/integrations.json`:
 
 ```jsonc
 "mcp_servers": {
   "github": {
     "enabled": true,
-    "url": "https://api.githubcopilot.com/mcp/",           // remote server
+    "url": "https://api.githubcopilot.com/mcp/",
     "headers": { "Authorization": "Bearer ${GITHUB_TOKEN}" }
   },
   "files": {
     "enabled": true,
-    "command": "npx",                                        // local server
-    "args": ["-y", "@modelcontextprotocol/server-filesystem", "D:\\transfer"]
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\path\\to\\folder"]
   }
 }
 ```
 
-Options: `confirm` = `"auto"` (default: asks for anything that looks
-destructive), `"always"` or `"never"`; `only_tools` = list to expose a
-subset; `env`, `cwd`, `timeout`.
+Options: `confirm` (`"auto"` asks for anything destructive, `"always"`,
+`"never"`), `only_tools` to expose a subset, plus `env`, `cwd` and `timeout`.
 
-Already on: **browser** (Playwright) lets Jarvis use websites by their
-structure: fill forms, click links, read pages, far more reliably than
-clicking pixels.
-
-### 2. HTTP actions (any API or webhook)
+### 2. HTTP actions
+Any API or webhook, described once and called by name:
 
 ```jsonc
 "http_actions": [{
   "enabled": true,
   "name": "lights",
-  "description": "Turn a Home Assistant light on or off.",   // the AI reads this
+  "description": "Turn a Home Assistant light on or off.",
   "method": "POST",
   "url": "http://homeassistant.local:8123/api/services/light/{action}",
   "headers": { "Authorization": "Bearer ${HA_TOKEN}" },
@@ -294,12 +264,11 @@ clicking pixels.
 }]
 ```
 
-`{param}` placeholders are filled by Jarvis. Use `body_text` instead of
-`body` for plain-text APIs (ntfy). Examples for phone notifications, n8n and
-Home Assistant are in `integrations.json`, switched off.
+`{param}` placeholders are filled in by Jarvis. Use `body_text` for plain-text
+APIs. Ready-made examples (phone notifications, n8n, Home Assistant) are in
+`integrations.json`, switched off.
 
-### 3. Python plugins (anything you can code)
-
+### 3. Python plugins
 Drop a `.py` file in `backend/plugins/`. Copy `_template.py` to start;
 `dictionary.py` is a working example.
 
@@ -314,70 +283,85 @@ def crypto_price(coin: str) -> str:
 
 ### Drive Jarvis from outside
 
-Other tools can send Jarvis commands (phone shortcuts, Stream Deck, n8n,
-scripts, CI):
+Phone shortcuts, Stream Deck, n8n, scripts and CI can all send it commands:
 
 ```powershell
 $h = @{ "X-Jarvis-Token" = "<JARVIS_AUTH_TOKEN from backend/.env>" }
+
 # Run a command and get the answer back
 Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/command -Headers $h `
   -ContentType "application/json" -Body '{"text": "lock my pc", "wait": true}'
+
 # Make Jarvis announce something
 Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/notify -Headers $h `
   -ContentType "application/json" -Body '{"text": "Build finished"}'
 ```
 
-Or with no code at all: drop a `.txt` file into `backend/inbox/`. Jarvis
-runs it as a command and appends the answer to `backend/inbox/replies.log`.
-Point a OneDrive/Dropbox folder there and you can command your PC from your
-phone.
+Or with no code: drop a `.txt` file into `backend/inbox/`. Jarvis runs it as a
+command and appends the answer to `backend/inbox/replies.log`. Point a
+OneDrive or Dropbox folder at it and you can command your PC from your phone.
 
 ---
 
-## Brains (models)
+## Models
 
 Set in `backend/.env`. `LLM_PROVIDERS` is tried in order; a rate-limited
-one is skipped automatically.
+provider is skipped automatically.
 
-- **gemini**: free key from aistudio.google.com. The free tier has a
-  *daily* request cap **per model**, so Jarvis discovers every Flash model
-  your key can use and rotates through them when one runs out. It also
-  remembers which model answered last, so it doesn't waste time retrying
-  dead ones after a restart.
-
-To keep requests small and fast, Jarvis only sends the tools a request
-needs: a core set, plus groups (files, windows, routines, activity,
-workspaces, each integration...) switched on by keywords in what you said
-or by the model asking for them.
-- **openai**: any OpenAI-compatible API. Recommended free backup:
-  **Groq** (console.groq.com, free key):
+- **gemini**: free key from [aistudio.google.com](https://aistudio.google.com).
+- **openai**: any OpenAI-compatible API. A good free backup is
+  [Groq](https://console.groq.com):
   ```ini
-  LLM_PROVIDERS=gemini,openai,ollama
+  LLM_PROVIDERS=gemini,openai
   OPENAI_BASE_URL=https://api.groq.com/openai/v1
   OPENAI_API_KEY=gsk_...
   OPENAI_MODEL=<a tool-capable model from console.groq.com/docs/models>
   OPENAI_VISION=false
   ```
-- **ollama**: fully local and private, but on a CPU-only machine each step
-  can take minutes and the model holds several GB of RAM, which can freeze
-  everything else. Only add it to `LLM_PROVIDERS` if you have a GPU.
+- **ollama**: fully local and private, but on a CPU-only machine each step can
+  take minutes and the model holds several GB of RAM. Only add it if you have a
+  GPU.
+
+Useful switches: `JARVIS_VERIFY=off` (skip the self-check),
+`JARVIS_PIXEL_EYES=always|auto|off`, `JARVIS_WHISPER_MODEL=small` and
+`JARVIS_MEETING_LANGUAGE=auto` (for Urdu or mixed-language calls),
+`JARVIS_HUD_CAPTURABLE=1` in `frontend/.env` (lets you screenshot the panel).
+
+---
+
+## Honest limits
+
+- **Windows only.** It leans on Windows UI Automation and Windows APIs.
+- **Free Gemini runs out.** The free tier has daily quotas. Rotation helps, and
+  a Groq key as backup covers the rest.
+- **Slower than you at long click-throughs.** Every step is look, decide, act,
+  check. It wins on tasks you'd rather not do, not on speed.
+- **Not code-signed yet.** Windows SmartScreen will warn on first run.
+- **Some things can't be undone**, and Jarvis tells you which.
+
+Where it's heading is in [ROADMAP.md](ROADMAP.md): more reliable clicking in
+apps Windows can't read, a meeting copilot, and a one-click installer.
+
+---
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| "I can't reach my language model" | Check your internet first (the log says "Can't reach"). Otherwise every Gemini model is out of quota: add a Groq key (above). |
-| Everything is slow / PC freezes | Ollama is loaded in RAM. Remove `ollama` from `LLM_PROVIDERS`. |
-| Panel says Offline | Backend not running: run `start-jarvis.bat`. Check `backend/logs/console.log`. |
-| Mic does nothing | Windows Settings > Privacy > Microphone > allow desktop apps. Settings sheet shows a live mic meter. |
+| "I can't reach my language model" | Check your internet first. Otherwise every Gemini model is out of quota: add a Groq key. |
+| Everything is slow or the PC freezes | Ollama is loaded in RAM. Remove `ollama` from `LLM_PROVIDERS`. |
+| Panel says Offline | The backend isn't running. Run `start-jarvis.bat` and check `backend/logs/console.log`. |
+| Mic does nothing | Windows Settings → Privacy → Microphone → allow desktop apps. The settings sheet shows a live mic meter. |
 | Voice sounds robotic | The neural voice needs internet; the OS voice is the offline fallback. |
-| An integration shows red | Its error is shown under it in Settings; usually a missing token in `.env`. |
+| An integration shows red | The error is under it in Settings, usually a missing token in `.env`. |
+| Two copies fight | Both use port 8000. Close one before starting the other. |
 
-Logs: `backend/logs/jarvis.log` (everything), `console.log` (backend
-startup), `hud.log` (panel). Every action is recorded in
-`backend/agent_log.db`.
+Logs: `backend/logs/jarvis.log` (everything), `console.log` (backend startup),
+`hud.log` (panel).
 
-## Tests
+---
+
+## Development
 
 ```powershell
 cd backend
@@ -385,9 +369,20 @@ venv\Scripts\python -m pip install -r requirements-dev.txt
 venv\Scripts\python -m pytest
 ```
 
-64 tests: providers, failover and Gemini model rotation, the agent loop
-(approvals, Stop, dynamic toolsets, self-check retries), undo for every
-supported change, background jobs, routine triggers,
-the activity timeline, tools and their safety rules, integrations (a real
-MCP server over stdio, HTTP actions, plugins), memory. None of them touch
-your mouse, keyboard or screen.
+82 tests cover providers and Gemini model rotation, the agent loop (approvals,
+Stop, dynamic toolsets, self-check retries), undo for every supported change,
+background jobs, routine triggers, the activity timeline, tool safety rules,
+integrations (a real MCP server over stdio, HTTP actions, plugins), meetings,
+heads-up and memory. None of them touch your mouse, keyboard or screen.
+
+Layout: `backend/` is the Python agent, `frontend/` is the Electron panel,
+`installer/` bootstraps a clean machine.
+
+---
+
+<div align="center">
+
+Built by [Muneeb](https://github.com/muneeb12011).<br>
+Use responsibly, and follow the terms of any site or platform you point it at.
+
+</div>
