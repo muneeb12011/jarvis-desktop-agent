@@ -107,6 +107,16 @@ summarise, fix, rewrite, shorten, make casual, translate (English ⇄ Urdu), dra
 a reply, or type your own instruction. **Replace selection** pastes the result
 back over the original and restores your clipboard.
 
+### Learns from you
+Teach it by talking to it. *"Remember I prefer VS Code over everything else."*
+*"Call me boss."* A routine, a workspace, a profile for someone you work with:
+each one is saved and used from then on, so you explain less every week and it
+does more of the work your way. The more you teach it, the better it fits you.
+
+It learns by building a memory of you on your own PC, not by retraining the AI
+model. You stay in control: *"what do you know about me?"* shows it, and
+*"forget that"* removes it.
+
 ### Remembers workspaces
 Arrange your windows, say *"save this as my coding workspace."* Later *"set up
 coding"* relaunches what's closed and puts every window back where it was.
