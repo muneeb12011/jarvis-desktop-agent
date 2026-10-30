@@ -1,7 +1,9 @@
 <div align="center">
 
 # Jarvis
-NOT PRODUCTION READY, SOON
+
+**NOT PRODUCTION READY, SOON**<br>
+
 **A voice first AI agent that uses your Windows PC the way you do.**<br>
 If you can do it with a mouse, a keyboard or a command line, Jarvis can too.
 
