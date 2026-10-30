@@ -1,8 +1,8 @@
 <div align="center">
 
 # Jarvis
-
-**A voice-first AI agent that uses your Windows PC the way you do.**<br>
+NOT PRODUCTION READY, SOON
+**A voice first AI agent that uses your Windows PC the way you do.**<br>
 If you can do it with a mouse, a keyboard or a command line, Jarvis can too.
 
 [![Latest release](https://img.shields.io/github/v/release/muneeb12011/jarvis-desktop-agent?label=download&style=flat-square&color=0ea5e9)](https://github.com/muneeb12011/jarvis-desktop-agent/releases/latest)
