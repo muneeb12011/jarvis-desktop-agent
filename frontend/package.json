@@ -1,6 +1,6 @@
 {
   "name": "jarvis-hud",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Jarvis desktop HUD: voice, wake word, live agent trace",
   "main": "dist/main.js",
   "scripts": {
@@ -51,6 +51,13 @@
       {
         "from": "../installer/bootstrap.ps1",
         "to": "bootstrap.ps1"
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "muneeb12011",
+        "repo": "jarvis-desktop-agent"
       }
     ],
     "win": {

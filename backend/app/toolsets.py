@@ -49,19 +49,35 @@ CORE = {
 CORE |= {"undo_last", "undo_last_request", "remember_about", "recall_about", "add_commitment", "list_commitments"}
 
 BUILTIN_GROUPS = {
-    "files": ["list_dir", "read_file", "write_file", "find_files", "open_path"],
+    "files": [
+        "list_dir",
+        "read_file",
+        "write_file",
+        "find_files",
+        "open_path",
+        "make_folder",
+        "copy_path",
+        "move_path",
+        "rename_path",
+        "organize_folder",
+        "download_file",
+    ],
     "windows": ["list_windows", "focus_window", "window_action", "close_app", "power", "set_brightness"],
     "screen_extra": ["scroll", "drag", "wait", "save_screenshot"],
     "clipboard": ["clipboard_read", "clipboard_write"],
-    "memory_extra": ["forget", "cancel_reminder", "list_notes"],
+    "memory_extra": ["forget", "cancel_reminder", "list_notes", "list_lessons", "forget_lesson"],
     "assistant": [
         "jarvis_settings",
         "integrations_status",
         "reload_integrations",
         "list_jobs",
+        "job_result",
         "cancel_job",
+        "pause_job",
+        "resume_job",
         "undo_history",
     ],
+    "agents": ["ai_agents_overview", "ai_agent_detail", "ai_agent_control"],
     "routines": ["create_routine", "list_routines", "delete_routine", "toggle_routine"],
     "activity": ["activity_report", "activity_search", "what_was_i_doing"],
     "workspaces": ["save_workspace", "restore_workspace", "list_workspaces", "delete_workspace"],
@@ -79,12 +95,13 @@ BUILTIN_GROUPS = {
 _NAME_TO_GROUP = {name: g for g, names in BUILTIN_GROUPS.items() for name in names}
 
 GROUP_HELP = {
-    "files": "browse, read, write, find and open files and folders",
+    "files": "browse, read, write, find, open, copy, move, rename, tidy and download files and folders",
     "windows": "list/focus/minimize/close windows and apps, brightness, lock/sleep/shutdown",
     "screen_extra": "scroll, drag, wait for UI, save a screenshot to disk",
     "clipboard": "read or set the clipboard",
-    "memory_extra": "forget facts, cancel reminders, list notes",
-    "assistant": "Jarvis's own settings, integrations status/reload, background job list/cancel",
+    "memory_extra": "forget facts, cancel reminders, list notes, see and delete what you've learned about how the user likes things",
+    "assistant": "Jarvis's own settings, integrations status/reload, background job list/detail/pause/resume/cancel",
+    "agents": "see which other AI tools are running (Claude Code, Cursor, Codex...), what each is doing, which one needs the user, and nudge one",
     "routines": "create/list/delete automations that run on a schedule or when something happens",
     "activity": "the user's computer activity history: time spent per app, what they were doing when",
     "workspaces": "save and restore window layouts (e.g. a 'coding' setup)",
@@ -95,10 +112,23 @@ GROUP_HELP = {
 
 # Cheap keyword routing so common requests don't need an extra round trip.
 _KEYWORDS: list[tuple[str, str]] = [
-    (r"\b(file|folder|pdf|docx?|download|desktop|document|read the|save (it|this) (to|as)|csv)\b", "files"),
+    (
+        r"\b(file|folder|pdf|docx?|download|desktop|document|read the|save (it|this) (to|as)|csv|move|copy|rename|"
+        r"organi[sz]e|tidy|declutter|sort (my|the))\b",
+        "files",
+    ),
     (r"\b(window|minimi[sz]e|maximi[sz]e|close|lock|shut ?down|restart|sleep|brightness|switch to)\b", "windows"),
+    (
+        r"\b(ai (agents?|tools?|assistants?)|agents?|claude code|codex|cursor|windsurf|copilot|gemini cli|aider|antigravity|"
+        r"chatgpt|is (it|that|claude|cursor|codex) (stuck|waiting|done|finished|working)|what('?s| is| are) .{0,25}doing|"
+        r"needs? me|waiting for me)\b",
+        "agents",
+    ),
     (r"\b(clipboard|copied|paste)\b", "clipboard"),
-    (r"\b(forget|cancel|notes?)\b", "memory_extra"),
+    (
+        r"\b(forget|cancel|notes?|what (have|did) you (learn|learned)|my rules|why did you do (it|that) that way)\b",
+        "memory_extra",
+    ),
     (r"\b(setting|voice|speak (faster|slower)|integration|plugin|background|jobs?)\b", "assistant"),
     (
         r"\b(routine|automat|every (day|morning|evening|week|hour|monday|weekday)|whenever|when i open|"

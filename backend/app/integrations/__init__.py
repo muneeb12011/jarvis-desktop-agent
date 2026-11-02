@@ -36,6 +36,7 @@ import requests
 
 from .. import config
 from .. import tools as tools_pkg
+from ..autonomy import HardConfirm
 from ..tools import REGISTRY, Tool, ToolResult
 from .mcp_client import HttpMCP, MCPError, StdioMCP, _Base
 
@@ -128,14 +129,14 @@ def _mcp_confirm_rule(server: str, tool: dict, mode: str):
     if mode == "never":
         return None
     if mode == "always":
-        return lambda a: f"Let {server} run '{tool['name']}'?\n{json.dumps(a)[:300]}"
+        return lambda a: HardConfirm(f"Let {server} run '{tool['name']}'?\n{json.dumps(a)[:300]}")
     ann = tool.get("annotations") or {}
     risky = ann.get("destructiveHint") is True or (
         ann.get("readOnlyHint") is not True and bool(_MUTATING.search(tool["name"]))
     )
     if not risky:
         return None
-    return lambda a: f"Let {server} run '{tool['name']}'?\n{json.dumps(a)[:300]}"
+    return lambda a: HardConfirm(f"Let {server} run '{tool['name']}'?\n{json.dumps(a)[:300]}")
 
 
 def _load_mcp(name: str, spec: dict) -> dict:
@@ -219,7 +220,7 @@ def _load_http_action(action: dict) -> int:
         parameters={"type": "object", "properties": props, **({"required": required} if required else {})},
         func=run,
         category="http",
-        confirm=(lambda a, n=name: f"Run {n} with {json.dumps(a)[:200]}?") if confirm else None,
+        confirm=(lambda a, n=name: HardConfirm(f"Run {n} with {json.dumps(a)[:200]}?")) if confirm else None,
         mutates=True,
         source=f"http:{name}",
     )

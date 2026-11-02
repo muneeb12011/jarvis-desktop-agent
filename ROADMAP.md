@@ -12,11 +12,11 @@ desktop, runs work in parallel, and is extensible by anyone.
 | Area | What works today |
 |---|---|
 | Voice | Wake word, push-to-talk hotkey, local Whisper speech-to-text, neural voice, follow-up listening, interrupting |
-| Brain | Native tool calling on Gemini / OpenAI-compatible / Ollama, automatic failover, Gemini model rotation, dynamic toolsets |
+| Brain | Native tool calling on Gemini, Claude, OpenAI, DeepSeek, Groq, OpenRouter and Ollama; pick, test and order them in Settings with no restart; automatic failover, Gemini model rotation, dynamic toolsets |
 | Desktop control | 60+ tools (apps, windows, files, shell, media, power, clipboard, web), UI Automation numbered controls, vision fallback |
-| Safety | Approval gate for risky actions, failsafe corner, full action log, rate limits, token auth |
+| Safety | Approval gate for risky actions, failsafe corner, full action log, rate limits, token auth; optional work-without-asking mode that only your own words can switch on and that never skips shutdown, bulk deletes, system changes or downloaded programs |
 | Proactive | Reminders, timers, battery warning, spoken greeting with weather |
-| Background jobs | Parallel delegated tasks with live status, completion announcements, results fed back into chat |
+| Background jobs | Parallel delegated tasks with a plain-language activity log, pause and resume, a time limit, history that survives restarts, completion announcements, results fed back into chat |
 | Routines | Plain-English automations on time, interval, app open, file arrival, web page change, startup, or by name |
 | Activity timeline | Private window history: time per app, "what was I doing at 3", search past pages/files/videos |
 | Workspaces | Save and restore full window layouts by voice |
@@ -28,6 +28,9 @@ desktop, runs work in parallel, and is extensible by anyone.
 | Heads-up | Opt-in: spots errors in terminals and editors, finished downloads and frozen apps, offers one line of help and a fix button |
 | Pixel eyes | Numbered click targets from OCR text and icon shapes for apps without accessibility data |
 | Meeting copilot | Local transcript of mic + call audio, summary, decisions, action items into reminders and promises |
+| Files | Make folders, copy, move, rename, sort a folder by type or date, and download from a link, all undoable, never overwriting, never running what they download |
+| Other AI tools | Finds Claude Code, Codex, Cursor and others on the PC, says which is working, stuck on a question for you or erroring, and can approve or interrupt one after you confirm |
+| Learning | Keeps your standing instructions and distilled corrections as visible, removable rules, ranked per request; offers a routine for tasks you repeat across days |
 | Installer | One-click Windows installer with private Python bootstrap, setup wizard, data kept across updates, self-test |
 
 ## Next

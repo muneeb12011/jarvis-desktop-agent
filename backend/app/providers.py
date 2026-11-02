@@ -3,7 +3,8 @@ The brain: one interface over several LLM backends, all using NATIVE tool
 calling (no "please answer in JSON" prompting, which is what made v2 brittle).
 
     Gemini            - free tier, fast, vision. Default first choice.
-    OpenAI-compatible - OpenAI, Groq, OpenRouter, LM Studio, vLLM ...
+    Anthropic         - Claude, through its native Messages API.
+    OpenAI-compatible - OpenAI, DeepSeek, Groq, OpenRouter, LM Studio, vLLM ...
     Ollama            - fully local fallback (needs a tool-capable model).
 
 `Brain` tries providers in the order given by LLM_PROVIDERS. When one is
@@ -345,17 +346,29 @@ class GeminiProvider:
 
 
 class OpenAIProvider:
+    """Any OpenAI-compatible chat-completions endpoint.
+
+    The base class reads the OPENAI_* settings (OpenAI itself, LM Studio, vLLM, any custom endpoint).
+    The subclasses below only change which settings they read, so DeepSeek, Groq and OpenRouter can
+    each hold their own key and sit in LLM_PROVIDERS next to each other.
+    """
+
     name = "openai"
+    label = "OpenAI-compatible"
+    _prefix = "OPENAI"
+    _default_vision = True
 
     def __init__(self) -> None:
-        self.base = config.OPENAI_BASE_URL
-        self.model = config.OPENAI_MODEL
-        self.supports_vision = config._get_bool("OPENAI_VISION", True)
+        p = self._prefix
+        self.base = getattr(config, f"{p}_BASE_URL", "").rstrip("/")
+        self.model = getattr(config, f"{p}_MODEL", "")
+        self.api_key = getattr(config, f"{p}_API_KEY", "")
+        self.supports_vision = config._get_bool(f"{p}_VISION", self._default_vision)
 
     @property
     def configured(self) -> bool:
         local = "localhost" in self.base or "127.0.0.1" in self.base
-        return bool(config.OPENAI_API_KEY) or local
+        return bool(self.api_key) or local
 
     def _messages(self, system: str, messages: list[dict]) -> list[dict]:
         out: list[dict] = [{"role": "system", "content": system}]
@@ -390,6 +403,8 @@ class OpenAIProvider:
         return out
 
     def complete(self, system: str, messages: list[dict], tools: list[ToolSpec]) -> AssistantTurn:
+        if not self.configured:
+            raise ProviderUnavailable(f"{self.label}: no API key set", cooldown=3600)
         payload: dict[str, Any] = {"model": self.model, "messages": self._messages(system, messages)}
         if tools:
             payload["tools"] = [
@@ -399,16 +414,16 @@ class OpenAIProvider:
                 }
                 for t in tools
             ]
-        headers = {"Authorization": f"Bearer {config.OPENAI_API_KEY}"} if config.OPENAI_API_KEY else {}
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         resp = _post(f"{self.base}/chat/completions", payload, headers)
         if resp.status_code in (429, 500, 502, 503):
             raise ProviderUnavailable(
-                f"{self.base} busy ({resp.status_code})", cooldown=max(_retry_after_seconds(resp, 30), 15)
+                f"{self.label} busy ({resp.status_code})", cooldown=max(_retry_after_seconds(resp, 30), 15)
             )
         if resp.status_code in (401, 403):
-            raise ProviderUnavailable(f"OpenAI-compatible endpoint rejected key: {resp.text[:200]}", cooldown=3600)
+            raise ProviderUnavailable(f"{self.label} rejected the API key: {resp.text[:200]}", cooldown=3600)
         if not resp.ok:
-            raise ProviderError(f"OpenAI-compatible error {resp.status_code}: {resp.text[:400]}")
+            raise ProviderError(f"{self.label} error {resp.status_code}: {resp.text[:400]}")
         msg = resp.json()["choices"][0]["message"]
         calls = []
         for tc in msg.get("tool_calls") or []:
@@ -418,7 +433,208 @@ class OpenAIProvider:
             except json.JSONDecodeError:
                 args = {}
             calls.append(ToolCall(id=tc.get("id") or _new_id(), name=fn.get("name", ""), args=args))
-        return AssistantTurn(text=(msg.get("content") or "").strip(), tool_calls=calls, raw=msg, provider=self.name)
+        return AssistantTurn(
+            text=(msg.get("content") or "").strip(), tool_calls=calls, raw=msg, provider=self.name, model=self.model
+        )
+
+
+class DeepSeekProvider(OpenAIProvider):
+    """DeepSeek. Use a model with tool calling (deepseek-chat); the reasoning-only models can't drive tools."""
+
+    name = "deepseek"
+    label = "DeepSeek"
+    _prefix = "DEEPSEEK"
+    _default_vision = False
+
+
+class GroqProvider(OpenAIProvider):
+    """Groq: fast, with a free tier. Pick a tool-capable model from console.groq.com/docs/models."""
+
+    name = "groq"
+    label = "Groq"
+    _prefix = "GROQ"
+    _default_vision = False
+
+
+class OpenRouterProvider(OpenAIProvider):
+    """OpenRouter: one key for hundreds of models, including free ones. Set OPENROUTER_MODEL to any model id."""
+
+    name = "openrouter"
+    label = "OpenRouter"
+    _prefix = "OPENROUTER"
+    _default_vision = False
+
+
+# ============================================================ Anthropic (Claude)
+
+_ANTHROPIC_API = "https://api.anthropic.com/v1"
+_ANTHROPIC_VERSION = "2023-06-01"
+
+
+def _anthropic_id(raw_id: str) -> str:
+    """Anthropic only accepts [a-zA-Z0-9_-] up to 64 chars in tool ids. Ids from other providers
+    (after a mid-conversation failover) are mapped the same way on both the call and its result."""
+    return re.sub(r"[^a-zA-Z0-9_-]", "_", raw_id or "")[:64] or "call_unknown"
+
+
+class AnthropicProvider:
+    """Claude through the native Messages API (native tool use, vision)."""
+
+    name = "anthropic"
+    label = "Claude"
+    supports_vision = True
+
+    def __init__(self) -> None:
+        self.model = config.ANTHROPIC_MODEL
+
+    @property
+    def configured(self) -> bool:
+        return bool(config.ANTHROPIC_API_KEY)
+
+    def _messages(self, messages: list[dict]) -> list[dict]:
+        """Provider-neutral history -> Anthropic messages.
+
+        Anthropic wants strictly alternating roles, every tool_use answered by a tool_result in the very
+        next user message, and tool_result blocks first inside that message. History that came from
+        another provider, or that was cut short by Stop, can break those rules, so it is repaired here.
+        """
+        out: list[dict] = []
+
+        def push(role: str, blocks: list[dict]) -> None:
+            if not blocks:
+                return
+            if out and out[-1]["role"] == role:
+                out[-1]["content"].extend(blocks)
+            else:
+                out.append({"role": role, "content": list(blocks)})
+
+        for m in messages:
+            if m["role"] == "user":
+                blocks: list[dict] = []
+                if m.get("image_b64"):
+                    blocks.append(
+                        {
+                            "type": "image",
+                            "source": {"type": "base64", "media_type": "image/jpeg", "data": m["image_b64"]},
+                        }
+                    )
+                if m.get("text"):
+                    blocks.append({"type": "text", "text": m["text"]})
+                push("user", blocks)
+            elif m["role"] == "assistant":
+                blocks = []
+                if m.get("text"):
+                    blocks.append({"type": "text", "text": m["text"]})
+                for tc in m.get("tool_calls", []):
+                    blocks.append({"type": "tool_use", "id": _anthropic_id(tc.id), "name": tc.name, "input": tc.args})
+                push("assistant", blocks)
+            elif m["role"] == "tool":
+                push(
+                    "user",
+                    [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": _anthropic_id(m["tool_call_id"]),
+                            "content": m.get("content") or "(no output)",
+                        }
+                    ],
+                )
+        return self._repair(out)
+
+    @staticmethod
+    def _repair(out: list[dict]) -> list[dict]:
+        # 1. tool_result blocks must come first inside a user message.
+        for msg in out:
+            if msg["role"] == "user":
+                msg["content"].sort(key=lambda b: b.get("type") != "tool_result")
+
+        # 2. Drop tool_results that don't answer a tool_use in the message right before them,
+        #    and answer any tool_use that was left hanging.
+        fixed: list[dict] = []
+        for msg in out:
+            prev = fixed[-1] if fixed else None
+            if msg["role"] == "user":
+                asked = {b["id"] for b in prev["content"] if b["type"] == "tool_use"} if prev else set()
+                msg["content"] = [b for b in msg["content"] if b["type"] != "tool_result" or b["tool_use_id"] in asked]
+                answered = {b["tool_use_id"] for b in msg["content"] if b["type"] == "tool_result"}
+                missing = [
+                    {"type": "tool_result", "tool_use_id": i, "content": "(no result: the action was interrupted)"}
+                    for i in sorted(asked - answered)
+                ]
+                msg["content"] = missing + msg["content"]
+                if not msg["content"]:
+                    continue
+            if fixed and fixed[-1]["role"] == msg["role"]:
+                fixed[-1]["content"].extend(msg["content"])
+            else:
+                fixed.append(msg)
+
+        # 3. A conversation has to start with the user.
+        if not fixed or fixed[0]["role"] != "user":
+            fixed.insert(0, {"role": "user", "content": [{"type": "text", "text": "(conversation resumed)"}]})
+        return fixed
+
+    def complete(self, system: str, messages: list[dict], tools: list[ToolSpec]) -> AssistantTurn:
+        if not self.configured:
+            raise ProviderUnavailable("ANTHROPIC_API_KEY not set", cooldown=3600)
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": config.ANTHROPIC_MAX_TOKENS,
+            "system": system,
+            "messages": self._messages(messages),
+        }
+        if tools:
+            specs = []
+            for t in tools:
+                schema = dict(t.parameters or {})
+                schema.setdefault("type", "object")
+                schema.setdefault("properties", {})
+                specs.append({"name": t.name, "description": t.description, "input_schema": schema})
+            payload["tools"] = specs
+        headers = {
+            "x-api-key": config.ANTHROPIC_API_KEY,
+            "anthropic-version": _ANTHROPIC_VERSION,
+            "content-type": "application/json",
+        }
+        resp = _post(f"{_ANTHROPIC_API}/messages", payload, headers)
+        if resp.status_code in (429, 500, 502, 503, 529):
+            raise ProviderUnavailable(
+                f"Claude busy ({resp.status_code})", cooldown=max(_retry_after_seconds(resp, 30), 15)
+            )
+        if resp.status_code in (401, 403):
+            raise ProviderUnavailable(f"Claude rejected the API key: {resp.text[:200]}", cooldown=3600)
+        if resp.status_code == 404:
+            raise ProviderUnavailable(f"Claude model '{self.model}' not found for this key", cooldown=3600)
+        if not resp.ok:
+            raise ProviderError(f"Claude error {resp.status_code}: {resp.text[:400]}")
+        return self._parse(resp.json())
+
+    def _parse(self, data: dict) -> AssistantTurn:
+        content = data.get("content") or []
+        text_parts: list[str] = []
+        calls: list[ToolCall] = []
+        for block in content:
+            kind = block.get("type")
+            if kind == "text":
+                text_parts.append(block.get("text", ""))
+            elif kind == "tool_use":
+                args = block.get("input")
+                calls.append(
+                    ToolCall(
+                        id=block.get("id") or _new_id(),
+                        name=block.get("name", ""),
+                        args=args if isinstance(args, dict) else {},
+                    )
+                )
+        if not content:
+            raise ProviderError(f"Claude returned nothing (stop_reason: {data.get('stop_reason', 'unknown')})")
+        return AssistantTurn(
+            text="".join(text_parts).strip(),
+            tool_calls=calls,
+            raw=content,
+            provider=self.name,
+            model=data.get("model") or self.model,
+        )
 
 
 # ============================================================ Ollama
@@ -550,13 +766,38 @@ class OllamaProvider:
 
 # ============================================================ router
 
-_REGISTRY = {"gemini": GeminiProvider, "openai": OpenAIProvider, "ollama": OllamaProvider}
+_REGISTRY = {
+    "gemini": GeminiProvider,
+    "anthropic": AnthropicProvider,
+    "openai": OpenAIProvider,
+    "deepseek": DeepSeekProvider,
+    "groq": GroqProvider,
+    "openrouter": OpenRouterProvider,
+    "ollama": OllamaProvider,
+}
+
+# Aliases people are likely to type in LLM_PROVIDERS.
+_ALIASES = {"claude": "anthropic", "gpt": "openai", "chatgpt": "openai", "google": "gemini", "local": "ollama"}
+
+
+def _build(names: list[str]) -> list:
+    built, seen = [], set()
+    for raw in names:
+        n = _ALIASES.get(raw.strip().lower(), raw.strip().lower())
+        if n in seen:
+            continue
+        if n not in _REGISTRY:
+            logger.warning("Unknown provider '%s' in LLM_PROVIDERS (known: %s)", raw, ", ".join(_REGISTRY))
+            continue
+        seen.add(n)
+        built.append(_REGISTRY[n]())
+    return built
 
 
 class Brain:
     def __init__(self, order: list[str] | None = None) -> None:
         names = order or config.LLM_PROVIDERS
-        self.providers = [_REGISTRY[n]() for n in names if n in _REGISTRY]
+        self.providers = _build(names)
         if not self.providers:
             self.providers = [OllamaProvider()]
         self._benched_until: dict[str, float] = {}
@@ -565,7 +806,7 @@ class Brain:
     def reset(self) -> None:
         """Rebuild providers after keys change (the setup wizard), forgetting old failures."""
         names = [p.name for p in self.providers]
-        self.providers = [_REGISTRY[n]() for n in names if n in _REGISTRY] or self.providers
+        self.providers = _build(names) or self.providers
         self._benched_until.clear()
 
     def available(self) -> list:
@@ -596,6 +837,7 @@ class Brain:
         return [
             {
                 "name": p.name,
+                "label": getattr(p, "label", p.name.capitalize()),
                 "model": getattr(p, "model", ""),
                 "configured": p.configured,
                 "benched_for": max(0, int(self._benched_until.get(p.name, 0) - now)),
@@ -609,23 +851,25 @@ class Brain:
 
 def describe_image(image_b64: str, question: str) -> str:
     """For brains without vision: get a text description of a screenshot from
-    whichever vision model is reachable (Gemini first, then local Ollama)."""
+    whichever vision model is reachable (Gemini, Claude or OpenAI first, then local Ollama)."""
     prompt = (
         "You are the eyes of a desktop assistant. Describe this screenshot precisely and literally: "
         "which app/window is in front, key visible text, buttons, fields, dialogs, and where they are "
         "(approximate x,y in image pixels). Only describe what is actually visible. "
         f"Focus on what's relevant to: {question}"
     )
-    if config.GEMINI_API_KEY:
+    for cls in (GeminiProvider, AnthropicProvider, OpenAIProvider):
+        provider = cls()
+        if not (provider.configured and provider.supports_vision):
+            continue
         try:
-            g = GeminiProvider()
-            turn = g.complete(
+            turn = provider.complete(
                 "You describe screenshots.", [{"role": "user", "text": prompt, "image_b64": image_b64}], []
             )
             if turn.text:
                 return turn.text
         except ProviderError as e:
-            logger.info("Gemini vision fallback failed: %s", e)
+            logger.info("%s vision fallback failed: %s", provider.name, e)
     try:
         resp = _post(
             f"{config.OLLAMA_HOST}/api/chat",

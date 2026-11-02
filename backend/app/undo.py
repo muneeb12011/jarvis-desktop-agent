@@ -280,10 +280,60 @@ def _undo_complete(d: dict) -> str:
     return "Marked it as open again."
 
 
+def _undo_files(d: dict) -> str:
+    """Reverse make_folder / copy_path / move_path / rename_path / organize_folder / download_file.
+
+    Nothing is deleted for good: copies and downloads go to the undo trash, and a file that a move or copy
+    replaced is restored from its backup.
+    """
+    notes: list[str] = []
+    for path in d.get("copied", []):
+        p = Path(path)
+        if p.exists():
+            trash = UNDO_DIR / "trash" / f"{int(time.time())}-{p.name}"
+            trash.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(p), trash)
+            notes.append(f"Removed {p.name}")
+    stuck = 0
+    for mv in reversed(d.get("moves", [])):
+        src, dst = Path(mv["from"]), Path(mv["to"])
+        if not dst.exists():
+            stuck += 1
+        elif src.exists():
+            stuck += 1  # something new is at the old spot; leave both alone
+        else:
+            src.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(dst), str(src))
+    moved = len(d.get("moves", [])) - stuck
+    if d.get("moves"):
+        notes.append(
+            f"Moved {moved} item{'s' if moved != 1 else ''} back"
+            + (f" ({stuck} couldn't be put back)" if stuck else "")
+        )
+    rep = d.get("replaced")
+    if rep and rep.get("file") and Path(rep["file"]).exists():
+        Path(rep["path"]).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(rep["file"], rep["path"])
+        notes.append(f"Restored the file that was replaced ({Path(rep['path']).name})")
+    for folder in d.get("created_dirs", []):  # deepest first, and only if empty
+        try:
+            Path(folder).rmdir()
+            notes.append(f"Removed the empty folder {Path(folder).name}")
+        except OSError:
+            pass
+    return ". ".join(notes) + "." if notes else "Nothing needed putting back."
+
+
 UndoSpec = tuple[Callable[[dict], Any], Callable[[dict], str], Callable[[dict, dict, str], dict] | None]
 
 SPECS: dict[str, UndoSpec] = {
     "write_file": (_snap_write_file, _undo_write_file, None),
+    "make_folder": (lambda a: {}, _undo_files, None),
+    "copy_path": (lambda a: {}, _undo_files, None),
+    "move_path": (lambda a: {}, _undo_files, None),
+    "rename_path": (lambda a: {}, _undo_files, None),
+    "organize_folder": (lambda a: {} if not a.get("dry_run", True) else None, _undo_files, None),
+    "download_file": (lambda a: {}, _undo_files, None),
     "jarvis_settings": (_snap_settings, _undo_settings, None),
     "set_reminder": (lambda a: {}, _undo_reminder, _final_id(r"Reminder #(\d+)")),
     "set_timer": (lambda a: {}, _undo_reminder, _final_id(r"Timer #(\d+)")),
@@ -341,13 +391,20 @@ def before(tool_name: str, source: str, args: dict, mutates: bool) -> Pending | 
     return None
 
 
-def commit(p: Pending | None, run_id: int | None, args: dict, ok: bool, result_text: str) -> int | None:
-    """Called after the tool ran. Returns the journal id, or None if nothing was recorded."""
+def commit(
+    p: Pending | None, run_id: int | None, args: dict, ok: bool, result_text: str, result_undo: dict | None = None
+) -> int | None:
+    """Called after the tool ran. Returns the journal id, or None if nothing was recorded.
+
+    `result_undo` is data the tool itself reported (file tools know exactly which paths they touched).
+    """
     if p is None or not ok:
         return None
     data = p.data
     if p.spec and p.spec[2]:
         data = p.spec[2](data, args, result_text)
+    if result_undo is not None:
+        data = {**(data if isinstance(data, dict) else {}), **result_undo}
     label = _label(p.tool, args)
     conn = _conn()
     try:

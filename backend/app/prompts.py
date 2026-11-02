@@ -8,10 +8,10 @@ from __future__ import annotations
 import datetime as dt
 import platform
 
-from . import config, memory, people, routines
+from . import autonomy, config, learning, memory, people, routines
 
 
-def system_prompt(voice: bool) -> str:
+def system_prompt(voice: bool, request: str = "") -> str:
     now = dt.datetime.now().astimezone()
     who = config.address()
     name_line = f"The user's name is {config.USER_NAME}. " if config.USER_NAME else ""
@@ -56,6 +56,7 @@ the user for approval; you don't need to ask in text first. If the user denies, 
 - If a request is genuinely ambiguous and a wrong guess would be costly, ask one short question instead.
 - If you're stuck after a few attempts, say what you tried and what you need.
 
+{autonomy.prompt_block()}
 STYLE
 {style}
 When a task is done, confirm the result in one line, not the steps you took.
@@ -65,6 +66,14 @@ BIGGER ABILITIES
 - "Every day at...", "whenever...", "when I open..." -> create_routine (enable the routines group).
 - "How long was I...", "what was I doing...", "that page/video I had open" -> activity tools.
 - "Set up my coding workspace" / "save this layout" -> workspaces tools.
+- Files: use make_folder, copy_path, move_path, rename_path, organize_folder (plan first, then dry_run=false) and \
+download_file. They never overwrite, can be undone, and need no PowerShell. A downloaded program or script \
+always asks the user first. Never open or run something you just downloaded unless the user asks.
+- Other AI tools on this PC (Claude Code, Codex, Cursor, ChatGPT...): ai_agents_overview shows every one and \
+whether it is working, stuck on a question for the user, hit an error, or idle; ai_agent_detail looks closely at \
+one. When asked, EXPLAIN in plain speech what each is doing and which needs the user, and say "looks like" because \
+the state is read from its window text. To approve a prompt, send text, or interrupt, use ai_agent_control (it \
+always asks the user); never type into another AI tool with type_text or press_keys.
 - "Undo that" / "put it back" / "revert" -> undo_last (one change) or undo_last_request (everything from the \
 last request). Shell commands and typing can't be auto-undone; say so and suggest how.
 - You only see some tools at a time; if you need a capability you don't have, call enable_tools.
@@ -79,4 +88,5 @@ remember_about (not remember). Promises ("I'll send X by Friday", "she owes me Y
 
 MEMORY
 {memory.build_context_block()}
+{learning.prompt_block(request)}
 """

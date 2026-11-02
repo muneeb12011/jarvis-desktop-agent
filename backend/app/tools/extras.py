@@ -14,6 +14,7 @@ import urllib.parse
 import requests
 
 from .. import config, memory, settings
+from ..autonomy import HardConfirm
 from . import ToolResult, tool
 
 
@@ -132,11 +133,25 @@ def save_screenshot() -> str:
     return f"Saved {path}"
 
 
+_LEVEL_RANK = {"strict": 2, "normal": 1, "off": 0}
+
+
+def _confirm_settings(args: dict) -> str | None:
+    """Raising the approval level is free. LOWERING it is what a hostile web page or file would try,
+    so it always goes to the user, even in work-without-asking mode."""
+    level = args.get("confirm_level")
+    if level and _LEVEL_RANK.get(str(level), 0) < _LEVEL_RANK.get(config.CONFIRM_LEVEL, 1):
+        return HardConfirm(f"Lower the approval level to '{level}'? Jarvis will ask you less before acting.")
+    return None
+
+
 @tool(
     "jarvis_settings",
     "Change Jarvis's own settings: voice (one of the listed ids), speaking speed "
     "(slower/normal/brisk/fast), confirmation level (strict/normal/off), how to address the user, home city, "
-    "or whether to start with Windows. Call with no arguments to read the current settings.",
+    "or whether to start with Windows. Call with no arguments to read the current settings. "
+    "Lowering the confirmation level always asks the user. 'Work without asking' is NOT done with this: "
+    "the app handles it from the user's own words.",
     {
         "voice": {"type": "string", "enum": [v["id"] for v in settings.VOICES]},
         "speed": {"type": "string", "enum": list(settings.RATES)},
@@ -146,6 +161,7 @@ def save_screenshot() -> str:
         "start_with_windows": {"type": "boolean"},
     },
     category="assistant",
+    confirm=_confirm_settings,
 )
 def jarvis_settings(
     voice: str | None = None,

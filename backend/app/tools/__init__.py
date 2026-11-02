@@ -14,7 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from .. import config
+from .. import autonomy, config
 from ..actuator import UserAbort
 from ..providers import ToolSpec
 
@@ -27,6 +27,7 @@ class ToolResult:
     ok: bool = True
     image_b64: str | None = None  # screenshot to show the model (and the HUD)
     ui: dict[str, Any] | None = None  # extra event for the HUD (e.g. a plan)
+    undo: dict[str, Any] | None = None  # exactly what the undo journal should remember about this call
 
 
 ConfirmRule = Callable[[dict[str, Any]], str | None]
@@ -51,11 +52,13 @@ class Tool:
         level = config.CONFIRM_LEVEL
         if level == "off":
             return None
+        # "Work without asking" mode skips routine approvals but never a HardConfirm one.
+        free = autonomy.active()
         if self.confirm:
             reason = self.confirm(args)
             if reason:
-                return reason
-        if level == "strict" and self.mutates:
+                return reason if isinstance(reason, autonomy.HardConfirm) or not free else None
+        if level == "strict" and self.mutates and not free:
             return f"{self.name} will change something on your computer."
         return None
 
@@ -112,11 +115,14 @@ def always(reason: str) -> ConfirmRule:
 def load_all() -> dict[str, Tool]:
     """Import every tool module so their @tool decorators run."""
     from . import (  # noqa: F401
+        ai_agents_tools,
         automation,
         extras,
+        filemgmt,
         files,
         headsup_tools,
         knowledge,
+        learning_tools,
         meeting_tools,
         people_tools,
         screen,

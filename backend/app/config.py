@@ -46,7 +46,8 @@ HOME_CITY = _get("JARVIS_CITY", "")  # default city for weather
 
 # ---------- Brain ----------
 # Comma-separated, tried in order. If one is rate-limited or down, the next
-# one takes over mid-conversation. Options: gemini, openai, ollama
+# one takes over mid-conversation.
+# Options: gemini, anthropic, openai, deepseek, groq, openrouter, ollama
 LLM_PROVIDERS = [p.strip() for p in _get("LLM_PROVIDERS", "gemini,ollama").split(",") if p.strip()]
 
 GEMINI_API_KEY = _get("GEMINI_API_KEY")
@@ -59,6 +60,25 @@ OPENAI_API_KEY = _get("OPENAI_API_KEY")
 OPENAI_BASE_URL = _get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
 OPENAI_MODEL = _get("OPENAI_MODEL", "gpt-4o-mini")
 
+# Claude (native Anthropic API, not the OpenAI-compatible layer, so tool calling stays reliable).
+ANTHROPIC_API_KEY = _get("ANTHROPIC_API_KEY")
+ANTHROPIC_MODEL = _get("ANTHROPIC_MODEL", "claude-sonnet-5-5")
+ANTHROPIC_MAX_TOKENS = _get_int("ANTHROPIC_MAX_TOKENS", 4096)
+
+# Ready-made OpenAI-compatible providers: paste a key and they work. Each has its own key, so
+# several can sit in LLM_PROVIDERS at once and fail over to each other.
+DEEPSEEK_API_KEY = _get("DEEPSEEK_API_KEY")
+DEEPSEEK_BASE_URL = _get("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
+DEEPSEEK_MODEL = _get("DEEPSEEK_MODEL", "deepseek-chat")
+
+GROQ_API_KEY = _get("GROQ_API_KEY")  # free tier: https://console.groq.com
+GROQ_BASE_URL = _get("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
+GROQ_MODEL = _get("GROQ_MODEL", "llama-3.3-70b-versatile")
+
+OPENROUTER_API_KEY = _get("OPENROUTER_API_KEY")  # has free models: https://openrouter.ai
+OPENROUTER_BASE_URL = _get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+OPENROUTER_MODEL = _get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+
 OLLAMA_HOST = _get("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
 # Must be a model with tool-calling support (llama3.1, qwen2.5, qwen3...).
 OLLAMA_TEXT_MODEL = _get("OLLAMA_TEXT_MODEL", "qwen2.5:7b")
@@ -70,6 +90,10 @@ LLM_TIMEOUT_SECONDS = _get_int("LLM_TIMEOUT_SECONDS", 60)
 
 # ---------- Agent ----------
 MAX_AGENT_STEPS = _get_int("JARVIS_MAX_STEPS", 30)
+# Background jobs: how many run at once, and how long one may work (time spent paused or waiting for you to
+# approve something doesn't count) before Jarvis stops it and reports what it got done.
+MAX_JOBS = max(1, min(8, _get_int("JARVIS_MAX_JOBS", 3)))
+JOB_TIMEOUT_MIN = max(1, _get_int("JARVIS_JOB_TIMEOUT_MIN", 45))
 # strict = confirm every action that changes something
 # normal = confirm risky things (shell writes, closing apps, overwriting files)
 # off    = never ask (not recommended)

@@ -36,27 +36,90 @@ def start_background_job(task: str, title: str = "") -> ToolResult:
     return ToolResult("Starting background job.", ui={"type": "start_job", "task": task, "title": title})
 
 
-@tool("list_jobs", "List background jobs and their status/results.", category="jobs")
+def _job_state(j: dict) -> str:
+    if j["paused"]:
+        return "paused"
+    if j["waiting"]:
+        return "waiting for the user's approval"
+    return j["status"]
+
+
+@tool(
+    "list_jobs",
+    "List background jobs: what each is doing right now, whether it's paused or waiting for the user's approval, "
+    "and the result of finished ones (including ones from earlier sessions). Use for 'what are my background "
+    "tasks doing', then explain them in plain words; use job_result for one job's full detail.",
+    category="jobs",
+)
 def list_jobs() -> str:
     from .. import jobs
 
     mgr = jobs.MANAGER
-    if not mgr or not mgr.jobs:
+    items = mgr.list() if mgr else []
+    if not items:
         return "No background jobs."
     lines = []
-    for j in mgr.list():
-        line = f"- [{j['id']}] {j['title']}: {j['status']}"
+    for j in items:
+        line = f"- [{j['id']}] {j['title']}: {_job_state(j)}"
         if j["status"] == "running" and j["step"]:
-            line += f" (now: {j['step']}, {j['steps']} steps)"
+            line += f" (now: {j['step']}, {j['steps']} steps"
+            line += f", {j['errors']} failed)" if j["errors"] else ")"
+        said = [a["text"] for a in j["activity"] if a["kind"] == "note"]
+        if j["status"] == "running" and said:
+            line += f"\n  it said: {said[-1][:160]}"
         if j["result"]:
             line += f"\n  result: {j['result'][:400]}"
         lines.append(line)
     return "\n".join(lines)
 
 
+@tool(
+    "job_result",
+    "Everything about ONE background job: what it was asked, its full result, and its activity log (what it did "
+    "and what came of each step). Works for finished jobs from earlier sessions too. Use to explain what a job "
+    "did or is doing, or to read its complete findings.",
+    {"id": {"type": "string"}},
+    ["id"],
+    category="jobs",
+)
+def job_result(id: str) -> str:  # noqa: A002
+    from .. import jobs
+
+    mgr = jobs.MANAGER
+    j = mgr.get(id.strip()) if mgr else None
+    if not j:
+        return f"I don't have a background job with id '{id}'."
+    started = time.strftime("%Y-%m-%d %H:%M", time.localtime(j["started"]))
+    out = [f'Job [{j["id"]}] "{j["title"]}": {j["status"]}, started {started}, {j["steps"]} steps.']
+    out.append(f"Asked to: {j['task'][:600]}")
+    if j.get("waiting"):
+        out.append(f"Waiting for the user's approval: {j['waiting']}")
+    if j["activity"]:
+        out.append("What it did:\n" + "\n".join(f"- {a['kind']}: {a['text']}" for a in j["activity"][-15:]))
+    out.append("Result:\n" + (j["result"][:6000] or "(none yet)"))
+    return "\n".join(out)
+
+
 @tool("cancel_job", "Cancel a running background job by id.", {"id": {"type": "string"}}, ["id"], category="jobs")
 def cancel_job(id: str) -> ToolResult:  # noqa: A002
     return ToolResult(f"Cancelling job {id}.", ui={"type": "cancel_job", "id": id})
+
+
+@tool(
+    "pause_job",
+    "Pause a running background job by id. It stops at its next step (a tool already running finishes first) and "
+    "waits until resume_job.",
+    {"id": {"type": "string"}},
+    ["id"],
+    category="jobs",
+)
+def pause_job(id: str) -> ToolResult:  # noqa: A002
+    return ToolResult(f"Pausing job {id}.", ui={"type": "pause_job", "id": id})
+
+
+@tool("resume_job", "Resume a paused background job by id.", {"id": {"type": "string"}}, ["id"], category="jobs")
+def resume_job(id: str) -> ToolResult:  # noqa: A002
+    return ToolResult(f"Resuming job {id}.", ui={"type": "resume_job", "id": id})
 
 
 # ------------------------------------------------------------------ routines

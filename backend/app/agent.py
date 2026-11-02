@@ -79,6 +79,7 @@ class Agent:
         self.persist = persist  # write turns to long-term conversation memory
         self.allow_gui = allow_gui  # background jobs don't get the mouse/keyboard
         self.prompt_extra = prompt_extra
+        self.gate: asyncio.Event | None = None  # background jobs: cleared = paused, checked between steps
         self.enabled_groups: set[str] = set()
         self.hooks: dict[str, Hook] = {}  # ToolResult.ui["type"] -> async handler (e.g. start a job)
         self.pending_notes: list[str] = []  # e.g. finished background jobs, injected on the next turn
@@ -180,9 +181,13 @@ class Agent:
         for step in range(1, config.MAX_AGENT_STEPS + 1):
             if self._stopped:
                 return f"Stopped, {config.address()}.", False
+            if self.gate is not None and not self.gate.is_set():  # a paused background job waits here
+                await self._race(self.gate.wait())
+                if self._stopped:
+                    return f"Stopped, {config.address()}.", False
 
             self.specs = self._current_specs()  # integrations and enabled groups change at runtime
-            system = prompts.system_prompt(voice) + self.prompt_extra
+            system = prompts.system_prompt(voice, goal) + self.prompt_extra
             msgs = self._prepared_history()
             turn = await self._race(loop.run_in_executor(self._io_pool, self.brain.complete, system, msgs, self.specs))
             if turn is None:
@@ -471,7 +476,7 @@ def _run_tool(tool, args: dict, run_id: int) -> tuple[ToolResult, int | None]:
     pending = undo.before(tool.name, tool.source, args, tool.mutates)
     result = tool.run(args)
     try:
-        undo_id = undo.commit(pending, run_id, args, result.ok, result.text)
+        undo_id = undo.commit(pending, run_id, args, result.ok, result.text, result.undo)
     except Exception:
         logger.debug("undo journal failed", exc_info=True)
         undo_id = None

@@ -15,6 +15,7 @@
       <div id="drag"></div>
       <span id="stateWord">Offline</span>
       <span id="brainName" title="Active model"></span>
+      <button id="autoPill" type="button" class="autoPill" hidden>acting freely</button>
       <div id="barButtons">
         <button id="wakeBtn" class="icon" title="Wake word: say “Jarvis” any time" aria-pressed="false">
           <svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M4.2 16.5l2.6-1.5M17.2 9l2.6-1.5"/><circle cx="12" cy="12" r="3.2"/></svg>
@@ -107,6 +108,7 @@
         <p class="obKicker">Setup · 2 of 4</p>
         <h2>Give me a brain</h2>
         <p class="obText">I think with Google Gemini. A free key takes about a minute: sign in, press <b>Create API key</b>, copy it here.</p>
+        <p class="hint">Rather use Claude, GPT, DeepSeek, Groq or a model on this PC? Press <b>Skip</b> and choose it under Settings, then Brain.</p>
         <button id="obGetKey" class="ghost wide">Open Google AI Studio</button>
         <label class="field obKey"><span>API key</span><input id="obKey" type="password" autocomplete="off" spellcheck="false" placeholder="paste it here" /></label>
         <p id="obKeyState" class="obState"></p>
@@ -155,6 +157,18 @@
         </button>
       </div>
 
+      <div class="group" id="brainGroup">
+        <h3>Brain</h3>
+        <p id="brainLive" class="brainLive" aria-live="polite"></p>
+        <p class="hint">Jarvis tries these top to bottom. If one runs out of quota or goes offline, the next takes over mid-conversation.</p>
+        <ul id="brainList" class="brains"></ul>
+        <datalist id="brainOllamaModels"></datalist>
+        <div class="brainFoot">
+          <p id="brainMsg" class="brainMsg" aria-live="polite"></p>
+          <button id="brainApply" type="button" class="ghost primary" disabled>Apply</button>
+        </div>
+      </div>
+
       <div class="group">
         <h3>Voice</h3>
         <div class="row">
@@ -175,6 +189,24 @@
       <div class="group">
         <h3>Ask before acting</h3>
         <div class="segmented" id="confirmGroup" role="radiogroup" aria-label="When to ask for approval"></div>
+        <div class="row autoRow">
+          <select id="autoFor" aria-label="How long to work without asking">
+            <option value="0">Until I stop it</option>
+            <option value="60">For 1 hour</option>
+            <option value="120">For 2 hours</option>
+            <option value="240">For 4 hours</option>
+          </select>
+          <button id="autoToggle" type="button" class="ghost" aria-pressed="false">Work without asking</button>
+        </div>
+        <p id="autoState" class="hint"></p>
+        <p class="hint">Skips routine approvals. Shutdown, bulk deletes, system changes and downloaded programs still ask. You can also just say it: “go ahead without asking until I say stop”.</p>
+      </div>
+
+      <div class="group" id="lessonGroup">
+        <h3>What Jarvis has learned</h3>
+        <p class="hint">Your standing instructions and corrections, kept so you don't repeat yourself. Remove any you disagree with.</p>
+        <ul id="lessonList" class="lessons"></ul>
+        <p id="lessonEmpty" class="hint">Nothing yet. Try saying: “From now on put my screenshots in D:\Shots.”</p>
       </div>
 
       <div class="group">
@@ -262,6 +294,9 @@
     </button>
   </aside>
 
+  <script src="brains.js"></script>
+  <script src="autonomy-ui.js"></script>
+  <script src="lessons-ui.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

@@ -37,11 +37,13 @@ enable_dpi_awareness()  # before anything touches the screen
 
 from . import (  # noqa: E402
     activity,
+    autonomy,
     config,
     headsup,
     inbox,
     integrations,
     jobs,
+    learning,
     meeting,
     memory,
     onboarding,
@@ -116,6 +118,22 @@ async def _hook_cancel_job(ui: dict) -> str | None:
     assert job_manager is not None
     ok = await job_manager.cancel(str(ui.get("id", "")))
     return "Cancelled." if ok else "No running job with that id."
+
+
+async def _hook_pause_job(ui: dict) -> str | None:
+    assert job_manager is not None
+    ok = await job_manager.pause(str(ui.get("id", "")))
+    return (
+        "Paused. It holds at its next step until you resume it."
+        if ok
+        else "No running job with that id (or it is already paused)."
+    )
+
+
+async def _hook_resume_job(ui: dict) -> str | None:
+    assert job_manager is not None
+    ok = await job_manager.resume(str(ui.get("id", "")))
+    return "Resumed." if ok else "That job isn't paused."
 
 
 async def _fire_routine(r: dict, context: str = "") -> None:
@@ -222,6 +240,8 @@ async def lifespan(_app: FastAPI):
         {
             "start_job": _hook_start_job,
             "cancel_job": _hook_cancel_job,
+            "pause_job": _hook_pause_job,
+            "resume_job": _hook_resume_job,
             "run_routine": _hook_run_routine,
             "routines_changed": _hook_routines_changed,
             "headsup_changed": _hook_headsup_changed,
@@ -314,6 +334,9 @@ async def agent_ws(websocket: WebSocket, token: str = ""):
             "activity": activity.enabled(),
             "headsup": headsup.enabled(),
             "setup": onboarding.state(),
+            "brain_setup": onboarding.providers_state(),
+            "autonomy": autonomy.status(),
+            "lessons": learning.public_list(),
             "meeting": (
                 {"title": meeting.COPILOT.meeting.title, "started": meeting.COPILOT.meeting.started}
                 if meeting.COPILOT and meeting.COPILOT.meeting
@@ -343,9 +366,9 @@ async def agent_ws(websocket: WebSocket, token: str = ""):
                 continue
 
             if isinstance(msg, ChatMessage):
-                await agent.submit(msg.text, voice=msg.voice)
+                await _handle_user_text(websocket, msg.text, msg.voice)
             elif isinstance(msg, StartMessage):
-                await agent.submit(msg.goal, voice=False)
+                await _handle_user_text(websocket, msg.goal, False)
             elif isinstance(msg, StopMessage):
                 await agent.stop()
             elif isinstance(msg, ConfirmMessage):
@@ -418,6 +441,48 @@ def status_endpoint(x_jarvis_token: str | None = Header(default=None)):
     }
 
 
+async def _handle_user_text(ws: WebSocket, text: str, voice: bool) -> None:
+    """Something the person typed or said at the HUD.
+
+    This is the ONLY place their own words can switch work-without-asking mode on or off. The inbound
+    API, the file inbox, background jobs and anything a web page says never pass through here.
+    """
+    assert agent is not None
+    cmd = autonomy.parse_command(text)
+    if cmd:
+        if cmd.action == "grant":
+            autonomy.grant(cmd.minutes)
+        else:
+            autonomy.revoke()
+        await hub.broadcast(autonomy.event())
+        if autonomy.is_only_command(text):
+            await hub.send(ws, {"type": "reply", "text": autonomy.acknowledgement(cmd), "speak": voice, "status": "ok"})
+            return
+    await _learn_from(text)
+    await agent.submit(text, voice=voice)
+
+
+async def _learn_from(text: str) -> None:
+    """Pick up standing instructions and corrections from what the person said (HUD messages only)."""
+    assert agent is not None
+    try:
+        if learning.capture_standing(text) is not None:
+            await hub.broadcast({"type": "lessons", "items": learning.public_list()})
+        elif learning.looks_like_correction(text) and agent.last_reply:
+            previous = next((h["text"] for h in reversed(agent.history) if h["role"] == "user"), "")
+            asyncio.create_task(_distill_correction(previous, agent.last_reply, text))
+    except Exception:
+        logger.debug("learning from a message failed", exc_info=True)
+
+
+async def _distill_correction(previous: str, reply: str, correction: str) -> None:
+    """In the background: turn 'no, I meant the other folder' into a lasting rule, if it is one."""
+    assert agent is not None
+    rule = await asyncio.to_thread(learning.distill_correction, agent.brain, previous, reply, correction)
+    if rule and learning.add(rule, kind="correction", source="corrected") is not None:
+        await hub.broadcast({"type": "lessons", "items": learning.public_list()})
+
+
 async def _hud_action(ws: WebSocket, name: str, args: dict) -> None:
     """Buttons and toggles in the HUD that act directly, without a model call."""
     from .agent import IO_POOL, UI_POOL
@@ -426,6 +491,10 @@ async def _hud_action(ws: WebSocket, name: str, args: dict) -> None:
     try:
         if name == "cancel_job" and job_manager:
             await job_manager.cancel(str(args.get("id", "")))
+        elif name == "pause_job" and job_manager:
+            await job_manager.pause(str(args.get("id", "")))
+        elif name == "resume_job" and job_manager:
+            await job_manager.resume(str(args.get("id", "")))
         elif name == "run_routine":
             await _hook_run_routine({"id": args.get("id")})
         elif name == "toggle_routine":
@@ -446,6 +515,52 @@ async def _hud_action(ws: WebSocket, name: str, args: dict) -> None:
             await hub.send(ws, {"type": "setup_result", "step": args.get("step", ""), **res})
             if res["ok"]:
                 await hub.broadcast({"type": "settings", "settings": settings.current()})
+        elif name == "lesson_delete":
+            raw = args.get("id")
+            if isinstance(raw, int) and not isinstance(raw, bool):
+                learning.delete(raw)
+            await hub.broadcast({"type": "lessons", "items": learning.public_list()})
+        elif name == "autonomy_set":
+            if bool(args.get("on")):
+                raw = args.get("minutes")
+                minutes = float(raw) if isinstance(raw, int | float) and not isinstance(raw, bool) and raw > 0 else None
+                autonomy.grant(minutes)
+            else:
+                autonomy.revoke()
+            await hub.broadcast(autonomy.event())
+        elif name == "provider_test":
+            pid = str(args.get("provider", ""))
+            ok, text, models = await asyncio.to_thread(
+                onboarding.test_provider,
+                pid,
+                str(args.get("key", "")),
+                str(args.get("model", "")),
+                str(args.get("base", "")),
+            )
+            await hub.send(
+                ws,
+                {
+                    "type": "provider_result",
+                    "kind": "test",
+                    "provider": pid,
+                    "ok": ok,
+                    "message": text,
+                    "models": models,
+                },
+            )
+        elif name == "provider_save":
+            assert agent is not None
+            res = await asyncio.to_thread(onboarding.save_providers, dict(args.get("values") or {}), agent.brain)
+            await hub.send(ws, {"type": "provider_result", "kind": "save", **res})
+            if res["ok"]:
+                await hub.broadcast(
+                    {
+                        "type": "brain_setup",
+                        "providers": res["providers"],
+                        "order": res["order"],
+                        "brains": agent.brain.status(),
+                    }
+                )
         elif name == "meeting_start":
             assert meeting.COPILOT is not None
             text = await asyncio.to_thread(meeting.COPILOT.start, str(args.get("title", "")))

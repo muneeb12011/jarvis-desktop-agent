@@ -98,6 +98,12 @@ HUD_ACTIONS = Literal[
     "open_meeting_notes",
     "setup_test_key",
     "setup_save",
+    "provider_test",
+    "provider_save",
+    "autonomy_set",
+    "pause_job",
+    "resume_job",
+    "lesson_delete",
 ]
 
 

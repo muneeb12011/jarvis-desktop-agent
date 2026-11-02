@@ -17,6 +17,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from ..autonomy import HardConfirm
 from ..platform_utils import IS_WINDOWS, powershell, run, startfile
 from . import ToolResult, tool
 
@@ -268,9 +269,24 @@ def focus_window(title: str) -> str:
     return f"Focused '{win.title}'."
 
 
+# Closing these can throw away unsaved work, so they ask even when "work without asking" is on.
+_DOCUMENT_APPS = re.compile(
+    r"(word|winword|excel|powerpoint|powerpnt|onenote|notepad|code|cursor|windsurf|devenv|idea|pycharm|webstorm|"
+    r"photoshop|illustrator|premiere|aftereffects|resolve|blender|obs|figma|obsidian|typora|sublime|vim|nvim|emacs)",
+    re.IGNORECASE,
+)
+_UNSAVED_TITLE = re.compile(r"(^\*|\s\*\s|\u25cf|\bunsaved\b|\buntitled\b)", re.IGNORECASE)
+
+
+def _close_reason(label: str, text: str) -> str:
+    risky = bool(_DOCUMENT_APPS.search(label) or _UNSAVED_TITLE.search(label))
+    return HardConfirm(text) if risky else text
+
+
 def _confirm_close(args: dict) -> str | None:
     if args.get("action") == "close":
-        return f"Close '{args.get('title')}'? Unsaved work in it could be lost."
+        title = str(args.get("title", ""))
+        return _close_reason(title, f"Close '{title}'? Unsaved work in it could be lost.")
     return None
 
 
@@ -300,7 +316,7 @@ def window_action(title: str, action: str) -> str:
     {"name": {"type": "string"}},
     ["name"],
     category="apps",
-    confirm=lambda a: f"Close {a.get('name')}? Unsaved work could be lost.",
+    confirm=lambda a: _close_reason(str(a.get("name", "")), f"Close {a.get('name')}? Unsaved work could be lost."),
     mutates=True,
 )
 def close_app(name: str) -> str:
@@ -403,7 +419,7 @@ def set_brightness(percent: int) -> str:
 def _confirm_power(args: dict) -> str | None:
     action = args.get("action")
     if action in ("shutdown", "restart", "sleep", "sign_out"):
-        return f"{action.replace('_', ' ').capitalize()} the computer?"
+        return HardConfirm(f"{action.replace('_', ' ').capitalize()} the computer?")
     return None
 
 
@@ -449,12 +465,28 @@ _DANGER_HINTS = re.compile(
 )
 
 
+# Commands that still ask when "work without asking" is on: they delete in bulk, reformat, change the system
+# or its security, run code fetched from the internet, or are hard to take back.
+_HARD_SHELL = re.compile(
+    r"(remove-item\b[^|;]*-recurse|\b(?:rm|rd|rmdir)\b[^|;]*(?:-r\b|-rf\b|-recurse|/s\b)|\bdel\b[^|;]*/[sfq]\b|\berase\b"
+    r"|\bformat\b|format-volume|diskpart|clear-disk|initialize-disk|remove-partition|\bcipher\b[^|;]*/w"
+    r"|clear-recyclebin|stop-computer|restart-computer|\bshutdown\b|bcdedit"
+    r"|\breg(?:\.exe)?\s+(?:delete|add|import|load)|(?:set|new|remove)-itemproperty\b[^|;]*hk(?:lm|cu|ey_)"
+    r"|\bsc(?:\.exe)?\s+(?:delete|config|create|stop)|new-service|set-service|set-executionpolicy|\bnetsh\b|\bschtasks\b"
+    r"|disable-\w+|uninstall|msiexec[^|;]*/x|\bnet\s+(?:user|localgroup)|takeown|icacls|-verb\s+runas"
+    r"|\biex\b|invoke-expression|downloadstring|\b(?:iwr|invoke-webrequest|curl|wget)\b[^|;]*\|\s*(?:iex|invoke-expression|powershell|cmd)"
+    r"|\bcmdkey\b|get-credential|\.ssh\b|id_rsa)",
+    re.IGNORECASE,
+)
+
+
 def _confirm_shell(args: dict) -> str | None:
     cmd = str(args.get("command", ""))
     segments = re.split(r"[;|&]", cmd)
     if all(_READ_ONLY.match(s) for s in segments if s.strip()) and not _DANGER_HINTS.search(cmd):
         return None
-    return f"Run this PowerShell command?\n{cmd}"
+    reason = f"Run this PowerShell command?\n{cmd}"
+    return HardConfirm(reason) if _HARD_SHELL.search(cmd) else reason
 
 
 @tool(

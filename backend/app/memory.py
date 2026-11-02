@@ -26,6 +26,17 @@ _SCHEMA = [
         source TEXT DEFAULT 'inferred',
         created_at REAL NOT NULL
     )""",
+    """CREATE TABLE IF NOT EXISTS lessons (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        text TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'preference',
+        source TEXT NOT NULL DEFAULT 'said',
+        created REAL NOT NULL,
+        last_used REAL NOT NULL,
+        uses INTEGER NOT NULL DEFAULT 0,
+        strength REAL NOT NULL DEFAULT 1.0,
+        standing INTEGER NOT NULL DEFAULT 0
+    )""",
     """CREATE TABLE IF NOT EXISTS conversation (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         role TEXT NOT NULL,

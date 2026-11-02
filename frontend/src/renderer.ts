@@ -434,7 +434,17 @@ function showPlan(steps: string[], current: number) {
 
 // ================================================================== 4. Telemetry
 
-interface JobView { id: string; title: string; status: string; step: string; steps: number; ended: number | null }
+interface JobView {
+  id: string;
+  title: string;
+  status: string;
+  step: string;
+  steps: number;
+  ended: number | null;
+  paused?: boolean;
+  waiting?: string;
+  activity?: { kind: string; text: string }[];
+}
 const jobs = new Map<string, JobView>();
 
 interface Reminder { id: number; text: string; due_at: number; kind: string; label: string }
@@ -487,15 +497,23 @@ function renderTimers() {
   const now = Date.now() / 1000;
   const soon = reminders.filter((r) => r.due_at - now < 36 * 3600).slice(0, 4);
   const vj = visibleJobs();
-  const key = soon.map((r) => r.id).join(",") + "|" + vj.map((j) => `${j.id}:${j.status}:${j.steps}`).join(",");
+  const key = soon.map((r) => r.id).join(",") + "|" + vj.map((j) => `${j.id}:${j.status}:${j.steps}:${j.paused ? 1 : 0}:${j.waiting ? 1 : 0}:${j.step}`).join(",");
   if (el.timers.dataset.key !== key) {
     el.timers.dataset.key = key;
-    el.timers.innerHTML = vj.map((j) =>
-      `<span class="chip job ${escapeHtml(j.status)}" data-job="${escapeHtml(j.id)}" title="Background job">` +
-      `<span class="label">${escapeHtml(j.title.slice(0, 26))}</span>` +
-      `<span class="when">${escapeHtml(j.status === "running" ? (j.step || "starting") : j.status)}</span>` +
-      (j.status === "running" || j.status === "queued" ? `<button title="Cancel job" aria-label="Cancel job">×</button>` : "") +
-      `</span>`).join("") + soon.map((r) =>
+    el.timers.innerHTML = vj.map((j) => {
+      const live = j.status === "running" || j.status === "queued";
+      const now = j.paused ? "paused" : j.waiting ? "needs you" : j.status === "running" ? (j.step || "starting") : j.status;
+      const recent = (j.activity ?? []).slice(-4).map((a) => `${a.kind}: ${a.text}`).join("\n");
+      return (
+        `<span class="chip job ${escapeHtml(j.status)}${j.paused ? " paused" : ""}${j.waiting ? " waiting" : ""}" data-job="${escapeHtml(j.id)}" ` +
+        `title="${escapeHtml(j.waiting || recent || "Background job")}">` +
+        `<span class="label">${escapeHtml(j.title.slice(0, 26))}</span>` +
+        `<span class="when">${escapeHtml(now)}</span>` +
+        (live ? `<button data-act="pause" title="${j.paused ? "Resume job" : "Pause job"}" aria-label="${j.paused ? "Resume job" : "Pause job"}">${j.paused ? "▶" : "⏸"}</button>` : "") +
+        (live ? `<button data-act="cancel" title="Cancel job" aria-label="Cancel job">×</button>` : "") +
+        `</span>`
+      );
+    }).join("") + soon.map((r) =>
       `<span class="chip ${r.kind === "timer" ? "timer" : "reminder"}" data-id="${r.id}">` +
       `<span class="label">${escapeHtml(r.kind === "timer" ? r.label : r.text).slice(0, 28)}</span>` +
       `<span class="when"></span><button title="Cancel" aria-label="Cancel">×</button></span>`).join("");
@@ -516,7 +534,11 @@ el.timers.addEventListener("click", (e) => {
   const btn = (e.target as HTMLElement).closest("button");
   const chip = btn?.closest(".chip") as HTMLElement | null;
   if (!chip) return;
-  if (chip.dataset.job) send({ type: "action", name: "cancel_job", args: { id: chip.dataset.job } });
+  if (chip.dataset.job) {
+    const job = jobs.get(chip.dataset.job);
+    const name = btn?.dataset.act === "pause" ? (job?.paused ? "resume_job" : "pause_job") : "cancel_job";
+    send({ type: "action", name, args: { id: chip.dataset.job } });
+  }
   else send({ type: "cancel_reminder", id: Number(chip.dataset.id) });
 });
 
@@ -1509,6 +1531,9 @@ function handle(m: any) {
       el.brainName.textContent = live ? live.model : "no model configured";
       if (m.settings) renderSettings(m.settings);
       if (m.integrations) renderIntegrations(m.integrations);
+      if (m.brain_setup) renderBrainSetup(m.brain_setup, m.brains);
+      renderAutonomy(m.autonomy);
+      renderLessons(m.lessons);
       el.optActivity.checked = Boolean(m.activity);
       setMeeting(m.meeting ? "recording" : "idle", m.meeting?.title ?? "", m.meeting?.started ?? null);
       if (m.setup && !m.setup.done) openOnboarding(m.setup);
@@ -1533,6 +1558,7 @@ function handle(m: any) {
       break;
     case "brain":
       el.brainName.textContent = (m.status as any[])?.find((b) => b.name === m.provider)?.model ?? m.provider;
+      if (Array.isArray(m.status)) renderBrainLive(m.status);
       break;
     case "narration":
       addMsg("jarvis", m.text, true);
@@ -1635,6 +1661,21 @@ function handle(m: any) {
       break;
     case "setup_result":
       onSetupResult(m);
+      break;
+    case "brain_setup": {
+      renderBrainSetup({ providers: m.providers, order: m.order }, m.brains);
+      const live = (m.brains as any[] | undefined)?.find((b) => b.configured && !b.benched_for);
+      if (live) el.brainName.textContent = live.model;
+      break;
+    }
+    case "provider_result":
+      onProviderResult(m);
+      break;
+    case "autonomy":
+      renderAutonomy(m as AutoState);
+      break;
+    case "lessons":
+      renderLessons(m.items);
       break;
     case "headsup_state":
       renderHeadsupState(Boolean(m.enabled), m.muted ?? []);

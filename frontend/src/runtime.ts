@@ -10,7 +10,7 @@
  */
 
 import { BrowserWindow, dialog } from "electron";
-import { ChildProcess, spawn } from "child_process";
+import { ChildProcess, spawn, spawnSync } from "child_process";
 import * as crypto from "crypto";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
@@ -48,6 +48,16 @@ function requirementsStamp(backendDir: string): string {
     if (fs.existsSync(p)) h.update(fs.readFileSync(p));
   }
   return h.digest("hex").slice(0, 16);
+}
+
+/**
+ * True when the private Python really starts. An environment can be left on disk but broken (an interrupted
+ * first run, or a Python that was removed afterwards); checking only that the file exists would reuse it forever.
+ */
+function pythonWorks(python: string): boolean {
+  if (!fs.existsSync(python)) return false;
+  const r = spawnSync(python, ["-c", "import sys"], { timeout: 60000, windowsHide: true });
+  return r.status === 0;
 }
 
 /** A per-install secret shared by the HUD and the backend; created once in the data folder's .env. */
@@ -126,7 +136,7 @@ function runBootstrap(p: ReturnType<typeof paths>, stamp: string): Promise<boole
         type: "error",
         title: "Jarvis couldn't finish setting up",
         message: failed || `Setup stopped (code ${code}).`,
-        detail: `Check your internet connection and start Jarvis again.\nDetails: ${path.join(p.dataDir, "logs", "install.log")}`,
+        detail: `Starting Jarvis again retries the setup (the first run needs an internet connection). If it keeps failing, the full log is at:\n${path.join(p.dataDir, "logs", "install.log")}`,
       });
       if (!win.isDestroyed()) win.close();
       resolve(false);
@@ -140,7 +150,7 @@ export async function ensureRuntime(): Promise<Runtime | null> {
   const stamp = requirementsStamp(p.backendDir);
   const stampFile = path.join(p.runtimeDir, "venv", "jarvis-requirements.stamp");
   const current = fs.existsSync(stampFile) ? fs.readFileSync(stampFile, "utf8").trim() : "";
-  if (!fs.existsSync(p.python) || current !== stamp) {
+  if (!pythonWorks(p.python) || current !== stamp) {
     if (!(await runBootstrap(p, stamp))) return null;
   }
   const token = ensureToken(p.dataDir);
